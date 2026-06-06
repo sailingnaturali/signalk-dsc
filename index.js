@@ -34,6 +34,9 @@ const DSC_PGN = 129808;
 const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 const DSE_PAIR_WINDOW_MS = 2 * 60 * 1000;
+// Notifications are in-memory on the server: a restart silently drops an
+// active alarm. On start, re-raise any alert this recent.
+const REANNOUNCE_WINDOW_MS = 60 * 60 * 1000;
 
 module.exports = function makePlugin(app) {
   const plugin = {
@@ -80,11 +83,38 @@ module.exports = function makePlugin(app) {
   let store = null;
   let options = {};
   let started = false;
+  let reannounceTimer = null;
+
+  function unwrap(node) {
+    return node && typeof node === 'object' && 'value' in node ? node.value : node;
+  }
 
   function selfMmsi() {
-    const node = app.getSelfPath('mmsi');
-    const value = node && typeof node === 'object' && 'value' in node ? node.value : node;
+    const value = unwrap(app.getSelfPath('mmsi'));
     return typeof value === 'string' ? value : undefined;
+  }
+
+  function selfPosition() {
+    const value = unwrap(app.getSelfPath('navigation.position'));
+    return value && typeof value.latitude === 'number' ? value : undefined;
+  }
+
+  /** Vessel name from the data model (AIS static data), if we have heard it. */
+  function vesselName(mmsi) {
+    if (!mmsi || typeof app.getPath !== 'function') return undefined;
+    try {
+      const value = unwrap(app.getPath(`vessels.urn:mrn:imo:mmsi:${mmsi}.name`));
+      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function messageContext(event) {
+    return {
+      ownPosition: selfPosition(),
+      vesselName: vesselName(event.distressedMmsi || event.mmsi),
+    };
   }
 
   function notify(event) {
@@ -99,7 +129,10 @@ module.exports = function makePlugin(app) {
               value: {
                 state,
                 method: ['visual', 'sound'],
-                message: buildMessage(event),
+                // Kept terse on purpose: this string gets spoken by the
+                // voice pipeline. Full detail lives in the resource store
+                // and the logbook entry.
+                message: buildMessage(event, messageContext(event)),
                 timestamp: event.receivedAt,
               },
             },
@@ -128,7 +161,7 @@ module.exports = function makePlugin(app) {
         Authorization: `Bearer ${options.logbookToken}`,
         Cookie: `JAUTHENTICATION=${options.logbookToken}`,
       },
-      body: JSON.stringify({ text: buildLogbookText(event), ago: 0 }),
+      body: JSON.stringify({ text: buildLogbookText(event, messageContext(event)), ago: 0 }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   }
@@ -208,7 +241,7 @@ module.exports = function makePlugin(app) {
             value: {
               state: 'emergency',
               method: ['visual', 'sound'],
-              message: buildMessage(event),
+              message: buildMessage(event, messageContext(event)),
             },
           });
         }
@@ -298,10 +331,32 @@ module.exports = function makePlugin(app) {
     app.on('N2KAnalyzerOut', onPgn);
 
     started = true;
+
+    // Survive server restarts mid-incident: re-raise the newest alert per
+    // category that is still fresh (a received MAYDAY must not vanish just
+    // because the server bounced). Delayed so position providers are up and
+    // the spoken message can say "N miles <direction>" instead of raw
+    // coordinates.
+    reannounceTimer = setTimeout(() => {
+      if (!started) return;
+      const now = Date.now();
+      const reannounced = new Set();
+      const events = store.list();
+      for (let i = events.length - 1; i >= 0; i--) {
+        const event = events[i];
+        if (!NOTIFICATION_STATES[event.category] || reannounced.has(event.category)) continue;
+        const at = Date.parse(event.lastReceivedAt || event.receivedAt);
+        if (now - at <= REANNOUNCE_WINDOW_MS) {
+          notify(event);
+          reannounced.add(event.category);
+        }
+      }
+    }, options.reannounceDelayMs ?? 30000);
   };
 
   plugin.stop = function () {
     started = false;
+    clearTimeout(reannounceTimer);
     app.removeListener('N2KAnalyzerOut', onPgn);
   };
 

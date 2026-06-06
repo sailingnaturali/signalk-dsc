@@ -18,7 +18,9 @@ function sentenceInput(sentence) {
     id: sentence.substring(3, 6),
     sentence,
     parts: sentence.split('*')[0].split(',').slice(1),
-    tags: { source: 'test.0', timestamp: '2026-06-06T12:00:00.000Z' },
+    // Recent timestamp: the re-raise-after-restart logic only considers
+    // events fresher than its window.
+    tags: { source: 'test.0', timestamp: new Date().toISOString() },
   };
 }
 
@@ -185,7 +187,7 @@ test('distress writes a ship\'s-log entry via the logbook API', async () => {
   const req = await received;
   assert.equal(req.headers.authorization, 'Bearer test-token');
   assert.match(req.headers.cookie, /JAUTHENTICATION=test-token/);
-  assert.match(req.body.text, /DSC DISTRESS/);
+  assert.match(req.body.text, /\[DSC\] DISTRESS/);
   assert.match(req.body.text, /338040079/);
   server.close();
   plugin.stop();
@@ -235,6 +237,57 @@ test('events reload from disk after a plugin restart', async () => {
   const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
   assert.equal(events.length, 1);
   plugin2.stop();
+});
+
+test('a fresh distress alarm is re-raised after a restart', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  plugin.stop();
+  assert.equal(app.deltas.length, 1);
+
+  const plugin2 = makePlugin(app);
+  plugin2.start({ reannounceDelayMs: 0 });
+  await new Promise((r) => setTimeout(r, 25));
+  assert.equal(app.deltas.length, 2); // re-raised on start
+  const notif = app.deltas[1].delta.updates[0].values[0];
+  assert.equal(notif.path, 'notifications.dsc.distress');
+  assert.equal(notif.value.state, 'emergency');
+  plugin2.stop();
+});
+
+test('a stale alert is not re-raised after a restart', async () => {
+  const app = mockApp();
+  const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(
+    path.join(app.dataDir, 'dsc-calls.jsonl'),
+    JSON.stringify({
+      id: `${old}-338040079`,
+      receivedAt: old,
+      category: 'distress',
+      mmsi: '338040079',
+      natureOfDistress: 'sinking',
+    }) + '\n'
+  );
+  const plugin = start(app, { reannounceDelayMs: 0 });
+  await new Promise((r) => setTimeout(r, 25));
+  assert.equal(app.deltas.length, 0);
+  plugin.stop();
+});
+
+test('voice message includes range and direction when own position is known', () => {
+  const app = mockApp();
+  app.getSelfPath = (p) => {
+    if (p === 'mmsi') return '368000001';
+    if (p === 'navigation.position') return { value: { latitude: 42.4, longitude: -83.1 } };
+    return undefined;
+  };
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const msg = app.deltas[0].delta.updates[0].values[0].value.message;
+  assert.match(msg, /nautical miles (north|south|east|west)/);
+  assert.doesNotMatch(msg, /°/); // compact voice line, no raw coordinates
+  plugin.stop();
 });
 
 test('malformed DSC sentences never throw out of the parser', () => {

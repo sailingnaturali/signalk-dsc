@@ -26,7 +26,16 @@ For every DSC call heard by a connected radio:
   `emergency`), `notifications.dsc.urgency` (`alarm`), `notifications.dsc.safety`
   (`alert`). Routine calls never alarm. Repeated re-transmissions of the same
   alert (DSC auto-repeats until acknowledged) update the stored call instead of
-  re-alarming.
+  re-alarming. Alerts received within the last hour are **re-raised after a
+  server restart** — notifications are in-memory, and a received MAYDAY must
+  not vanish because the server bounced.
+- **A voice-sized message** — the notification message is deliberately minimal
+  (type, vessel, situation, range and direction from own position, action):
+  > DSC distress alert: vessel Wind Chaser, sinking, 2.3 nautical miles
+  > northwest. Monitor channel 16.
+
+  Full detail (MMSI, coordinates, reported time, transport) goes to the call
+  log and the logbook entry instead, so TTS pipelines stay terse.
 - **Remote-vessel deltas** — the caller's `navigation.position` (and a distress
   notification) under `vessels.urn:mrn:imo:mmsi:<caller>`, so chartplotters can
   show where the call came from.
