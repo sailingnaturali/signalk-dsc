@@ -1,0 +1,246 @@
+'use strict';
+
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const http = require('node:http');
+const { EventEmitter } = require('node:events');
+
+const makePlugin = require('../index');
+
+const DISTRESS = '$CDDSC,12,3380400790,12,05,00,1423108312,2019,,,S,E*69';
+const DSE = '$CDDSE,1,1,A,3380400790,00,45894494*1B';
+
+function sentenceInput(sentence) {
+  return {
+    id: sentence.substring(3, 6),
+    sentence,
+    parts: sentence.split('*')[0].split(',').slice(1),
+    tags: { source: 'test.0', timestamp: '2026-06-06T12:00:00.000Z' },
+  };
+}
+
+function mockApp() {
+  const app = new EventEmitter();
+  app.dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsc-plugin-'));
+  app.getDataDirPath = () => app.dataDir;
+  app.getSelfPath = (p) => (p === 'mmsi' ? '368000001' : undefined);
+  app.deltas = [];
+  app.handleMessage = (id, delta) => app.deltas.push({ id, delta });
+  app.parsers = {};
+  app.emitPropertyValue = (name, value) => {
+    if (name === 'nmea0183sentenceParser') app.parsers[value.sentence] = value.parser;
+  };
+  app.resourceProviders = {};
+  app.registerResourceProvider = (provider) => {
+    app.resourceProviders[provider.type] = provider;
+  };
+  app.error = () => {};
+  app.debug = () => {};
+  app.setPluginStatus = () => {};
+  return app;
+}
+
+// Tiny logbook stand-in: resolves `received` with the captured request.
+function logbookServer() {
+  let resolve;
+  const received = new Promise((r) => (resolve = r));
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      resolve({ url: req.url, headers: req.headers, body: JSON.parse(body) });
+      res.writeHead(200).end();
+    });
+  });
+  return new Promise((r) =>
+    server.listen(0, '127.0.0.1', () => r({ server, received, port: server.address().port }))
+  );
+}
+
+function start(app, options = {}) {
+  const plugin = makePlugin(app);
+  plugin.start({ logbookToken: '', ...options });
+  return plugin;
+}
+
+test('start registers DSC + DSE parsers and the dsc-calls resource provider', () => {
+  const app = mockApp();
+  const plugin = start(app);
+  assert.ok(app.parsers.DSC);
+  assert.ok(app.parsers.DSE);
+  assert.ok(app.resourceProviders['dsc-calls']);
+  plugin.stop();
+});
+
+test('a distress alert is stored, alarmed under self, and visible as a resource', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  const delta = app.parsers.DSC(sentenceInput(DISTRESS));
+
+  // Upstream-compatible delta under the sender's context (for chartplotters).
+  assert.equal(delta.context, 'vessels.urn:mrn:imo:mmsi:338040079');
+  const remotePaths = delta.updates[0].values.map((v) => v.path);
+  assert.ok(remotePaths.includes('navigation.position'));
+
+  // Self-context notification so the vessel's own alarm chain fires.
+  assert.equal(app.deltas.length, 1);
+  const notif = app.deltas[0].delta.updates[0].values[0];
+  assert.equal(notif.path, 'notifications.dsc.distress');
+  assert.equal(notif.value.state, 'emergency');
+  assert.match(notif.value.message, /338040079/);
+  assert.match(notif.value.message, /sinking/);
+
+  // Stored and served.
+  const resources = await app.resourceProviders['dsc-calls'].methods.listResources();
+  const events = Object.values(resources);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].category, 'distress');
+  assert.equal(events[0].source, 'nmea0183');
+  assert.equal(events[0].raw, DISTRESS);
+  plugin.stop();
+});
+
+test('a following DSE refines the stored position', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const delta = app.parsers.DSE(sentenceInput(DSE));
+
+  assert.equal(delta.context, 'vessels.urn:mrn:imo:mmsi:338040079');
+  const refined = delta.updates[0].values[0].value;
+  assert.ok(Math.abs(refined.latitude - (42 + 31.4589 / 60)) < 1e-9);
+
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events[0].positionResolution, 'enhanced');
+  assert.ok(Math.abs(events[0].position.latitude - (42 + 31.4589 / 60)) < 1e-9);
+  plugin.stop();
+});
+
+test('repeated distress re-transmissions are deduped, not re-alarmed', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  assert.equal(events[0].repeats, 1);
+  assert.equal(app.deltas.length, 1); // only the first alarm
+  plugin.stop();
+});
+
+test('PGN 129808 urgency call is stored and raises an alarm-state notification', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  app.emit('N2KAnalyzerOut', {
+    pgn: 129808,
+    fields: {
+      dscFormat: 'All ships',
+      dscCategory: 'Urgency',
+      dscMessageAddress: 366999707,
+      latitudeOfVesselReported: 48.76,
+      longitudeOfVesselReported: -123.23,
+    },
+  });
+  app.emit('N2KAnalyzerOut', { pgn: 129038, fields: {} }); // unrelated PGN ignored
+
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  assert.equal(events[0].source, 'n2k');
+  const notif = app.deltas[0].delta.updates[0].values[0];
+  assert.equal(notif.path, 'notifications.dsc.urgency');
+  assert.equal(notif.value.state, 'alarm');
+  plugin.stop();
+});
+
+test('routine calls are stored but never notify', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  app.parsers.DSC(sentenceInput('$CDDSC,20,3381581370,00,21,26,1423108312,1902,,,B,E*7B'));
+
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  assert.equal(app.deltas.length, 0);
+  plugin.stop();
+});
+
+test('distress writes a ship\'s-log entry via the logbook API', async () => {
+  const { server, received, port } = await logbookServer();
+  const app = mockApp();
+  const plugin = start(app, {
+    logbookUrl: `http://127.0.0.1:${port}/plugins/signalk-logbook/logs`,
+    logbookToken: 'test-token',
+  });
+
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const req = await received;
+  assert.equal(req.headers.authorization, 'Bearer test-token');
+  assert.match(req.headers.cookie, /JAUTHENTICATION=test-token/);
+  assert.match(req.body.text, /DSC DISTRESS/);
+  assert.match(req.body.text, /338040079/);
+  server.close();
+  plugin.stop();
+});
+
+test('no logbook write without a token, and none for routine calls', async () => {
+  const { server, received, port } = await logbookServer();
+  const app = mockApp();
+
+  // No token → distress still stored, no HTTP call.
+  const plugin = start(app, { logbookUrl: `http://127.0.0.1:${port}/x`, logbookToken: '' });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  plugin.stop();
+
+  // Token set but routine call → no HTTP call either.
+  const app2 = mockApp();
+  const plugin2 = start(app2, { logbookUrl: `http://127.0.0.1:${port}/x`, logbookToken: 't' });
+  app2.parsers.DSC(sentenceInput('$CDDSC,20,3381581370,00,21,26,1423108312,1902,,,B,E*7B'));
+  plugin2.stop();
+
+  const winner = await Promise.race([
+    received.then(() => 'request'),
+    new Promise((r) => setTimeout(() => r('silence'), 150)),
+  ]);
+  assert.equal(winner, 'silence');
+  server.close();
+});
+
+test('stop() detaches: parsers return null and N2K events are ignored', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+  plugin.stop();
+
+  assert.equal(app.parsers.DSC(sentenceInput(DISTRESS)), null);
+  app.emit('N2KAnalyzerOut', { pgn: 129808, fields: { dscCategory: 'Distress', dscMessageAddress: 1 } });
+  assert.equal(app.deltas.length, 0);
+});
+
+test('events reload from disk after a plugin restart', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  plugin.stop();
+
+  const plugin2 = makePlugin(app);
+  plugin2.start({});
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  plugin2.stop();
+});
+
+test('malformed DSC sentences never throw out of the parser', () => {
+  const app = mockApp();
+  const plugin = start(app);
+  assert.equal(app.parsers.DSC({ sentence: '$CDDSC', parts: [], tags: {} }), null);
+  assert.equal(app.parsers.DSE({ sentence: '$CDDSE', parts: ['1'], tags: {} }), null);
+  plugin.stop();
+});

@@ -1,0 +1,38 @@
+{
+  "name": "@sailingnaturali/signalk-dsc",
+  "version": "0.1.0",
+  "description": "Receive, log, and alert on DSC (VHF digital selective calling) calls — distress, urgency, safety, routine — from NMEA 0183 ($CDDSC/$CDDSE) and NMEA 2000 (PGN 129808).",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-category-utility",
+    "dsc",
+    "gmdss",
+    "vhf",
+    "distress",
+    "marine"
+  ],
+  "author": "Bryan Clark",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sailingnaturali/signalk-dsc.git"
+  },
+  "homepage": "https://github.com/sailingnaturali/signalk-dsc#readme",
+  "bugs": {
+    "url": "https://github.com/sailingnaturali/signalk-dsc/issues"
+  },
+  "files": [
+    "index.js",
+    "lib"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
