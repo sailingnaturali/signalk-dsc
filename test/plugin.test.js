@@ -93,8 +93,9 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   const notif = app.deltas[0].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.dsc.distress');
   assert.equal(notif.value.state, 'emergency');
-  assert.match(notif.value.message, /338040079/);
   assert.match(notif.value.message, /sinking/);
+  // Spoken line: never an MMSI (TTS reads it as a huge number).
+  assert.doesNotMatch(notif.value.message, /338040079/);
 
   // Stored and served.
   const resources = await app.resourceProviders['dsc-calls'].methods.listResources();
