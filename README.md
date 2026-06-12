@@ -76,14 +76,58 @@ For every DSC call heard by a connected radio:
 
 ## Trying it without a radio
 
-Feed sentences through any NMEA 0183 connection (TCP, UDP, file playback):
+### Quick test script
+
+The repo includes a script that builds a valid DSC sentence and fires it at the
+server over UDP. First add a UDP input in your SignalK pipedProviders (Settings →
+Connections → Add):
+
+```json
+{
+  "id": "dsc-test-udp",
+  "pipeElements": [{ "type": "providers/simple",
+    "options": { "type": "NMEA0183", "subOptions": { "type": "udp", "port": "7777" } } }]
+}
+```
+
+Then send a fake distress call:
+
+```bash
+# Default: sinking, MMSI 366191919, near Boundary Pass → naturalaspi.local:7777
+node scripts/send-test-dsc.js
+
+# npm alias
+npm run send-test-dsc
+
+# Different nature of distress
+node scripts/send-test-dsc.js --nature fire
+node scripts/send-test-dsc.js --nature mob --category urgency
+
+# Different vessel / position
+node scripts/send-test-dsc.js --mmsi 316555777 --lat 48.9 --lon -123.5
+
+# Different host / port
+node scripts/send-test-dsc.js --host localhost --port 7777
+```
+
+All `--nature` values: `fire`, `flooding`, `collision`, `grounding`, `listing`,
+`sinking`, `adrift`, `abandon`, `piracy`, `mob`, `epirb`.
+
+Verify the call was captured:
+
+```
+GET /signalk/v2/api/resources/dsc-calls
+```
+
+### Manual sentence injection
+
+You can also feed raw sentences through any NMEA 0183 connection (TCP, UDP, file
+playback):
 
 ```
 $CDDSC,12,3380400790,12,05,00,1423108312,2019,,,S,E*69
 $CDDSE,1,1,A,3380400790,00,45894494*1B
 ```
-
-…then `GET /signalk/v2/api/resources/dsc-calls`.
 
 ## Limitations
 

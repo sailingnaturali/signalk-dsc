@@ -1,10 +1,11 @@
 {
   "name": "@sailingnaturali/signalk-dsc",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Receive, log, and alert on DSC (VHF digital selective calling) calls — distress, urgency, safety, routine — from NMEA 0183 ($CDDSC/$CDDSE) and NMEA 2000 (PGN 129808).",
   "main": "index.js",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "send-test-dsc": "node scripts/send-test-dsc.js"
   },
   "keywords": [
     "signalk-node-server-plugin",
