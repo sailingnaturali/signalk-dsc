@@ -20,7 +20,10 @@ safety call **made or intercepted**, with the time and position of the station
 in distress ([47 CFR §80.409](https://www.law.cornell.edu/cfr/text/47/80.409);
 SOLAS Ch. IV; ITU Radio Regulations; Canada's TP 1539). Pleasure craft are
 generally exempt from the log mandate — this just gives you that same
-SOLAS-grade record automatically.
+SOLAS-grade record automatically. The parser gaps and the regulation are written
+up in more detail [on the engineering blog][writeup].
+
+[writeup]: https://engineering.sailingnaturali.com/signalk-dsc-distress-call-logging-nmea0183-dse-pgn-129808/
 
 ## What you get
 
