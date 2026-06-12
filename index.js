@@ -161,7 +161,7 @@ module.exports = function makePlugin(app) {
         Authorization: `Bearer ${options.logbookToken}`,
         Cookie: `JAUTHENTICATION=${options.logbookToken}`,
       },
-      body: JSON.stringify({ text: buildLogbookText(event, messageContext(event)), ago: 0 }),
+      body: JSON.stringify({ text: buildLogbookText(event, messageContext(event)), ago: 0, category: 'radio' }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   }
