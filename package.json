@@ -25,9 +25,17 @@
   "bugs": {
     "url": "https://github.com/sailingnaturali/signalk-dsc/issues"
   },
+  "signalk": {
+    "displayName": "DSC",
+    "screenshots": [
+      "./docs/screenshots/config.png",
+      "./docs/screenshots/data-table.png"
+    ]
+  },
   "files": [
     "index.js",
-    "lib"
+    "lib",
+    "docs/screenshots/"
   ],
   "publishConfig": {
     "access": "public"
