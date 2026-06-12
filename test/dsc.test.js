@@ -38,6 +38,30 @@ test('sparse distress alert with omitted category (nmea0183-signalk#217)', () =>
   assert.equal(ev.utcTime, '18:00');
 });
 
+test('unrecognised numeric nature code is preserved as code-NN', () => {
+  // A well-formed but unlisted 2-digit nature code stays informative.
+  const ev = parseDsc(parts('$CDDSC,12,3380400790,12,11,00,1423108312,2019,,,S,E*6A'));
+  assert.equal(ev.natureOfDistress, 'code-11');
+});
+
+test('malformed nature field never yields a dotted/unsafe token', () => {
+  // The nature field arrives over the air and is unsanitised. A hostile or
+  // garbled value must not flow into a notification path segment (it would
+  // hit the unguarded path walk in SignalK/signalk-server#2768). Anything
+  // that is not a clean numeric code collapses to a safe constant.
+  for (const hostile of ['__proto__', 'a.b.c', 'constructor', '..', 'x/y']) {
+    const ev = parseDsc(
+      parts(`$CDDSC,12,3380400790,12,${hostile},00,1423108312,2019,,,S,E*6A`)
+    );
+    assert.equal(
+      ev.natureOfDistress,
+      'undesignated',
+      `nature "${hostile}" should collapse to a safe token`
+    );
+    assert.doesNotMatch(ev.natureOfDistress, /[.\\/]/);
+  }
+});
+
 test('distress cancellation carries the cancelling vessel MMSI', () => {
   const ev = parseDsc(parts('$CDDSC,12,3381581370,12,06,00,1423108312,0236,3381581370,,S,*20'));
   assert.equal(ev.category, 'distress');
