@@ -1,4 +1,4 @@
-# signalk-dsc
+# @sailingnaturali/signalk-dsc
 
 SignalK plugin that receives, logs, and alerts on **DSC** (VHF digital selective
 calling) traffic — distress, urgency, safety, and routine calls — from both
