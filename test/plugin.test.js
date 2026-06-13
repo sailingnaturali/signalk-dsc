@@ -42,6 +42,10 @@ function mockApp() {
   app.error = () => {};
   app.debug = () => {};
   app.setPluginStatus = () => {};
+  app.putHandlers = {};
+  app.registerPutHandler = (context, path, cb) => {
+    app.putHandlers[`${context}:${path}`] = cb;
+  };
   return app;
 }
 
@@ -410,4 +414,41 @@ test('no observations key on the logbook entry when nothing is observed', async 
   assert.equal('observations' in req.body, false);
   server.close();
   plugin.stop();
+});
+
+test('start registers PUT clear handlers for the three notifying categories', () => {
+  const app = mockApp();
+  const plugin = start(app);
+  for (const cat of ['distress', 'urgency', 'safety']) {
+    assert.ok(
+      app.putHandlers[`vessels.self:notifications.dsc.${cat}`],
+      `missing PUT handler for ${cat}`
+    );
+  }
+  plugin.stop();
+});
+
+test('a PUT clears the live alarm and stamps clearedAt on stored events', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  // Raise a distress alarm.
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  assert.equal(app.deltas.length, 1);
+
+  // Operator clears it.
+  const handler = app.putHandlers['vessels.self:notifications.dsc.distress'];
+  const result = handler('vessels.self', 'notifications.dsc.distress', null, () => {});
+  assert.equal(result.state, 'COMPLETED');
+  assert.equal(result.statusCode, 200);
+
+  // Live alarm cleared from the plugin's own source (null value).
+  const clearDelta = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
+  assert.equal(clearDelta.path, 'notifications.dsc.distress');
+  assert.equal(clearDelta.value, null);
+
+  // Stored event stamped so a restart won't resurrect it.
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  assert.ok(events[0].clearedAt);
 });

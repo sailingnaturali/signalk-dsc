@@ -153,6 +153,15 @@ module.exports = function makePlugin(app) {
     });
   }
 
+  /** Clear an active DSC alarm: drop the live notification from our own source
+   *  and stamp the stored events so the restart reannounce skips them. */
+  function clearCategory(category) {
+    app.handleMessage(plugin.id, {
+      updates: [{ values: [{ path: `notifications.dsc.${category}`, value: null }] }],
+    });
+    store.markCleared((e) => e.category === category, new Date().toISOString());
+  }
+
   function shouldLogbook(event) {
     if (options.logbookEnabled === false) return false;
     if (!options.logbookToken) return false;
@@ -353,6 +362,17 @@ module.exports = function makePlugin(app) {
     app.emitPropertyValue('nmea0183sentenceParser', { sentence: 'DSC', parser: dscParser });
     app.emitPropertyValue('nmea0183sentenceParser', { sentence: 'DSE', parser: dseParser });
     app.on('N2KAnalyzerOut', onPgn);
+
+    // Let an operator clear an active DSC alarm: a PUT to the notification path
+    // drops the live alert and marks the stored call(s) so a restart will not
+    // re-raise it. The readwrite device token authorizes this write.
+    for (const category of Object.keys(NOTIFICATION_STATES)) {
+      // Value ignored: any PUT to these paths means "clear" — no partial-update semantics.
+      app.registerPutHandler('vessels.self', `notifications.dsc.${category}`, () => {
+        clearCategory(category);
+        return { state: 'COMPLETED', statusCode: 200 };
+      });
+    }
 
     started = true;
 
