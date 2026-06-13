@@ -29,6 +29,7 @@ const { parseDse, refinePosition } = require('./lib/dse');
 const { normalizePgn129808 } = require('./lib/pgn129808');
 const { EventStore } = require('./lib/store');
 const { buildMessage, buildLogbookText } = require('./lib/format');
+const { captureOwnShip, unwrap } = require('./lib/snapshot');
 
 const DSC_PGN = 129808;
 const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
@@ -77,6 +78,20 @@ module.exports = function makePlugin(app) {
         description: 'Plugin routes are auth-gated; without a token the logbook write is skipped.',
         default: '',
       },
+      snapshotPaths: {
+        type: 'array',
+        title: 'Extra own-ship paths to snapshot on each call',
+        description:
+          'Each entry adds a field to the stored event\'s ownShip block (position, course, speed, wind, pressure, sea state, visibility and cloud coverage are always attempted).',
+        default: [],
+        items: {
+          type: 'object',
+          properties: {
+            field: { type: 'string', title: 'Field name in ownShip' },
+            path: { type: 'string', title: 'SignalK self path' },
+          },
+        },
+      },
     },
   };
 
@@ -84,10 +99,6 @@ module.exports = function makePlugin(app) {
   let options = {};
   let started = false;
   let reannounceTimer = null;
-
-  function unwrap(node) {
-    return node && typeof node === 'object' && 'value' in node ? node.value : node;
-  }
 
   function selfMmsi() {
     const value = unwrap(app.getSelfPath('mmsi'));
@@ -193,6 +204,11 @@ module.exports = function makePlugin(app) {
       });
       return duplicate;
     }
+
+    // Own-ship context at receive time — the forensic record of the moment
+    // the call arrived. First receipt only: repeats keep the original.
+    const ownShip = captureOwnShip(app, options.snapshotPaths);
+    if (ownShip) event.ownShip = ownShip;
 
     store.add(event);
     notify(event);

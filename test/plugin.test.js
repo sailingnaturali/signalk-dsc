@@ -298,3 +298,59 @@ test('malformed DSC sentences never throw out of the parser', () => {
   assert.equal(app.parsers.DSE({ sentence: '$CDDSE', parts: ['1'], tags: {} }), null);
   plugin.stop();
 });
+
+function selfStateApp(state) {
+  const app = mockApp();
+  app.getSelfPath = (p) => (p === 'mmsi' ? '368000001' : state[p]);
+  return app;
+}
+
+test('stored events carry an ownShip snapshot of current vessel state', async () => {
+  const app = selfStateApp({
+    'navigation.position': { value: { latitude: 48.76, longitude: -123.05 } },
+    'navigation.speedOverGround': 3.1,
+    'environment.water.swell.state': 3,
+  });
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.deepEqual(events[0].ownShip.position, { latitude: 48.76, longitude: -123.05 });
+  assert.equal(events[0].ownShip.sog, 3.1);
+  assert.equal(events[0].ownShip.seaState, 3);
+  assert.equal(events[0].ownShip.visibility, undefined); // nothing fabricated
+  plugin.stop();
+});
+
+test('no vessel state → no ownShip block at all', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal('ownShip' in events[0], false);
+  plugin.stop();
+});
+
+test('dedupe repeats do not refresh the snapshot', async () => {
+  const state = { 'navigation.speedOverGround': 3.1 };
+  const app = selfStateApp(state);
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  state['navigation.speedOverGround'] = 9.9;
+  app.parsers.DSC(sentenceInput(DISTRESS)); // re-transmission, deduped
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  assert.equal(events[0].ownShip.sog, 3.1);
+  plugin.stop();
+});
+
+test('snapshotPaths config adds fields to the snapshot', async () => {
+  const app = selfStateApp({ 'environment.depth.belowTransducer': 12.2 });
+  const plugin = start(app, {
+    snapshotPaths: [{ field: 'depth', path: 'environment.depth.belowTransducer' }],
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events[0].ownShip.depth, 12.2);
+  plugin.stop();
+});
