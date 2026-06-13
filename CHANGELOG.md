@@ -4,6 +4,14 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0]
+
+### Added
+
+- Clear active DSC alarms: a PUT to `notifications.dsc.<category>` drops the live
+  notification and marks the stored call so a server restart no longer re-raises it.
+- New `clear-dsc` script / `npm run clear-dsc` (`--category distress|urgency|safety|all`).
+
 ## [0.2.0]
 
 ### Added

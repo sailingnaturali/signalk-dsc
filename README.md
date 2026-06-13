@@ -142,6 +142,19 @@ $CDDSC,12,3380400790,12,05,00,1423108312,2019,,,S,E*69
 $CDDSE,1,1,A,3380400790,00,45894494*1B
 ```
 
+### Clearing an alarm
+
+A received distress/urgency/safety call raises `notifications.dsc.<category>` and is
+re-raised for up to an hour across server restarts. To clear an active alarm — dropping
+the live notification and stopping the restart re-raise:
+
+```bash
+SIGNALK_TOKEN=<readwrite-token> npm run clear-dsc -- --category distress
+```
+
+`--category all` clears all three. Clearing is a write, so it needs a readwrite token
+(the same one used to fire a test MOB). A new incoming call still alarms normally.
+
 ## Limitations
 
 - Distress relays, acknowledgements, and cancellations are stored (with
