@@ -452,3 +452,30 @@ test('a PUT clears the live alarm and stamps clearedAt on stored events', async 
   assert.equal(events.length, 1);
   assert.ok(events[0].clearedAt);
 });
+
+test('after a clear: a re-transmit stays silent but a new vessel re-alarms', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  app.parsers.DSC(sentenceInput(DISTRESS)); // raises
+  assert.equal(app.deltas.length, 1);
+
+  // Operator clears it (emits the null-clear delta + stamps clearedAt).
+  app.putHandlers['vessels.self:notifications.dsc.distress'](
+    'vessels.self', 'notifications.dsc.distress', null, () => {}
+  );
+  const afterClear = app.deltas.length; // includes the clear delta
+
+  // Same call re-transmits within the dedupe window → stays silent.
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  assert.equal(app.deltas.length, afterClear);
+
+  // A different vessel's distress must still alarm.
+  app.parsers.DSC(sentenceInput('$CDDSC,12,3165557770,12,05,00,1423108312,2019,,,S,E*00'));
+  const last = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
+  assert.ok(app.deltas.length > afterClear, 'new vessel distress should re-alarm');
+  assert.equal(last.path, 'notifications.dsc.distress');
+  assert.equal(last.value.state, 'emergency');
+
+  plugin.stop();
+});
