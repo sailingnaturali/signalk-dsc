@@ -50,9 +50,21 @@ For every DSC call heard by a connected radio:
 - **Remote-vessel deltas** — the caller's `navigation.position` (and a distress
   notification) under `vessels.urn:mrn:imo:mmsi:<caller>`, so chartplotters can
   show where the call came from.
+- Every stored call carries an `ownShip` snapshot of the moment it arrived —
+  position, course, speed, wind, pressure, and (when a source publishes them)
+  sea state, visibility, and cloud coverage. Absent sensor, absent field.
+- Logbook entries are written with `vhf: "70"` (DSC is received on channel 70
+  by definition) plus structured `observations`; non-distress calls that
+  propose a working channel get it in the entry text and on the stored event
+  as `workingChannel`.
 - **Optional ship's-log entries** via
   [signalk-logbook](https://github.com/meri-imperiumi/signalk-logbook) — a
   GMDSS-style radio log of received distress/urgency/safety traffic.
+
+> **Note:** Visibility on `environment.outside.visibility` is read as meters
+> and converted to the logbook 0–9 fog scale; an integer value ≤ 9 is assumed
+> to already be a fog-scale code, so sub-10-meter metric readings would be
+> misread.
 
 ## Transports
 
@@ -73,6 +85,7 @@ For every DSC call heard by a connected radio:
 | `logbookRoutine` | `false` | Also log routine calls. |
 | `logbookUrl` | `http://localhost:3000/plugins/signalk-logbook/logs` | |
 | `logbookToken` | _empty_ | SignalK access token; logbook writes are skipped without one (plugin routes are auth-gated). |
+| `snapshotPaths` | `[]` | Extra `{ field, path }` pairs added to the `ownShip` snapshot on each stored call (position, course, speed, wind, pressure, sea state, visibility and cloud coverage are always attempted). |
 
 ## Trying it without a radio
 

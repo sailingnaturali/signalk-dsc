@@ -4,6 +4,21 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `ownShip` snapshot on every stored call: position, COG/SOG, heading, wind,
+  pressure, and the logbook observation conventions (sea state, visibility,
+  cloud coverage) when a source publishes them. Extra paths via the new
+  `snapshotPaths` config option.
+- Logbook entries now carry `vhf: "70"` and an `observations` block derived
+  from the snapshot (visibility converted meters → fog scale).
+- The proposed working channel of non-distress calls (sentence field 5,
+  including the ITU-R M.493 `9`-prefixed encoding) is parsed — sanitised as
+  over-the-air input — onto the event as `workingChannel` and into the
+  logbook text.
+
 ## [0.1.1]
 
 ### Security
