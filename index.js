@@ -29,7 +29,7 @@ const { parseDse, refinePosition } = require('./lib/dse');
 const { normalizePgn129808 } = require('./lib/pgn129808');
 const { EventStore } = require('./lib/store');
 const { buildMessage, buildLogbookText } = require('./lib/format');
-const { captureOwnShip, unwrap } = require('./lib/snapshot');
+const { captureOwnShip, buildObservations, unwrap } = require('./lib/snapshot');
 
 const DSC_PGN = 129808;
 const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
@@ -163,6 +163,7 @@ module.exports = function makePlugin(app) {
   }
 
   async function postLogbook(event) {
+    const observations = buildObservations(event.ownShip);
     const res = await fetch(options.logbookUrl, {
       method: 'POST',
       headers: {
@@ -172,7 +173,14 @@ module.exports = function makePlugin(app) {
         Authorization: `Bearer ${options.logbookToken}`,
         Cookie: `JAUTHENTICATION=${options.logbookToken}`,
       },
-      body: JSON.stringify({ text: buildLogbookText(event, messageContext(event)), ago: 0, category: 'radio' }),
+      body: JSON.stringify({
+        text: buildLogbookText(event, messageContext(event)),
+        ago: 0,
+        category: 'radio',
+        // DSC is received on VHF channel 70 by definition.
+        vhf: '70',
+        ...(observations ? { observations } : {}),
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   }

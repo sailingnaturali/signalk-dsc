@@ -354,3 +354,39 @@ test('snapshotPaths config adds fields to the snapshot', async () => {
   assert.equal(events[0].ownShip.depth, 12.2);
   plugin.stop();
 });
+
+test('logbook entry carries vhf 70 and observations from the snapshot', async () => {
+  const { server, received, port } = await logbookServer();
+  const app = selfStateApp({
+    'environment.water.swell.state': 3,
+    'environment.outside.visibility': 1500, // meters → fog scale 4
+  });
+  const plugin = start(app, {
+    logbookUrl: `http://127.0.0.1:${port}/plugins/signalk-logbook/logs`,
+    logbookToken: 'test-token',
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const req = await received;
+  assert.equal(req.body.category, 'radio');
+  assert.equal(req.body.vhf, '70');
+  assert.deepEqual(req.body.observations, { seaState: 3, visibility: 4 });
+  server.close();
+  plugin.stop();
+});
+
+test('no observations key on the logbook entry when nothing is observed', async () => {
+  const { server, received, port } = await logbookServer();
+  const app = mockApp();
+  const plugin = start(app, {
+    logbookUrl: `http://127.0.0.1:${port}/plugins/signalk-logbook/logs`,
+    logbookToken: 'test-token',
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const req = await received;
+  assert.equal(req.body.vhf, '70');
+  assert.equal('observations' in req.body, false);
+  server.close();
+  plugin.stop();
+});
