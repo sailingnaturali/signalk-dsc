@@ -205,7 +205,9 @@ module.exports = function makePlugin(app) {
     if (event.mmsi && event.mmsi === selfMmsi()) event.self = true;
 
     // Re-transmission of the same call (distress alerts auto-repeat until
-    // acknowledged): bump the stored call, do not re-alarm.
+    // acknowledged): bump the stored call, do not re-alarm. This matches on
+    // mmsi+category+nature and ignores `clearedAt`, so an operator-cleared call
+    // that keeps repeating stays silent — a cleared MAYDAY should not re-nag.
     const duplicate = store.findRecent(
       (e) =>
         e.mmsi === event.mmsi &&

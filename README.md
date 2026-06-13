@@ -154,6 +154,8 @@ SIGNALK_TOKEN=<readwrite-token> npm run clear-dsc -- --category distress
 
 `--category all` clears all three. Clearing is a write, so it needs a readwrite token
 (the same one used to fire a test MOB). A new incoming call still alarms normally.
+This clears the `self`-context alarm; the transient per-caller notification raised under
+the sender's vessel context is not persisted or re-raised, so it is left untouched.
 
 ## Limitations
 

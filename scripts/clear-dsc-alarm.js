@@ -43,6 +43,10 @@ function parseArgs(argv) {
     if (flag === '--category') args.category = val;
     if (flag === '--token')    args.token = val;
   }
+  if (!Number.isInteger(args.port) || args.port <= 0) {
+    console.error(`Invalid --port "${args.port}". Must be a positive integer.`);
+    process.exit(1);
+  }
   return args;
 }
 
