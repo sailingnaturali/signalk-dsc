@@ -107,3 +107,40 @@ test('time sentinel 8888 means unavailable', () => {
   const ev = parseDsc(parts('$CDDSC,12,3380400790,12,06,00,1423108312,8888,,,S,E*00'));
   assert.equal(ev.utcTime, undefined);
 });
+
+test('routine individual call with bare working channel digits', () => {
+  // tc1=00 (all modes TP): field 5 is a channel, not a position.
+  const ev = parseDsc(parts('$CDDSC,20,3381581370,00,00,26,0072,1902,,,B,E*7B'));
+  assert.equal(ev.category, 'routine');
+  assert.equal(ev.workingChannel, '72');
+  assert.equal(ev.position, undefined);
+});
+
+test('M.493 9-prefixed channel encoding is normalized', () => {
+  const ev = parseDsc(parts('$CDDSC,20,3381581370,00,00,26,900072,1902,,,B,E*7B'));
+  assert.equal(ev.workingChannel, '72');
+});
+
+test('four-digit simplex channels survive intact', () => {
+  const ev = parseDsc(parts('$CDDSC,20,3381581370,00,00,26,1078,1902,,,B,E*7B'));
+  assert.equal(ev.workingChannel, '1078');
+});
+
+test('position telecommand (21) never yields a working channel', () => {
+  // Existing routine-position sentence: tc1=21 → field 5 is a position.
+  const ev = parseDsc(parts('$CDDSC,20,3381581370,00,21,26,1423108312,1902,,,B,E*7B'));
+  assert.equal(ev.workingChannel, undefined);
+  assert.ok(ev.position);
+});
+
+test('distress alerts never yield a working channel', () => {
+  const ev = parseDsc(parts('$CDDSC,12,3380400790,12,06,00,1423108312,2019,,,S,E*6A'));
+  assert.equal(ev.workingChannel, undefined);
+});
+
+test('hostile or implausible channel fields are dropped', () => {
+  for (const bad of ['__proto__', '12.3', 'constructor', '4242424242', '218450', '0', '100', '3001', '']) {
+    const ev = parseDsc(parts(`$CDDSC,20,3381581370,00,00,26,${bad},1902,,,B,E*00`));
+    assert.equal(ev.workingChannel, undefined, `expected ${JSON.stringify(bad)} to be dropped`);
+  }
+});
