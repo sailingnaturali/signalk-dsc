@@ -4,7 +4,7 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0]
 
 ### Added
 
@@ -18,6 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   including the ITU-R M.493 `9`-prefixed encoding) is parsed — sanitised as
   over-the-air input — onto the event as `workingChannel` and into the
   logbook text.
+
+## [0.1.3]
+
+### Fixed
+
+- Logbook entries are written under the `radio` category (previously they
+  defaulted to `navigation`).
+
+## [0.1.2]
+
+### Added
+
+- `scripts/send-test-dsc.js` — inject a fake DSC distress/urgency/safety call
+  via UDP without a radio. Configurable nature, MMSI, position, category, and
+  target host/port.
 
 ## [0.1.1]
 

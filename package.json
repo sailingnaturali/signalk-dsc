@@ -1,6 +1,6 @@
 {
   "name": "@sailingnaturali/signalk-dsc",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Receive, log, and alert on DSC (VHF digital selective calling) calls — distress, urgency, safety, routine — from NMEA 0183 ($CDDSC/$CDDSE) and NMEA 2000 (PGN 129808).",
   "main": "index.js",
   "scripts": {
