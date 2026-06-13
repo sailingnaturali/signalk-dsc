@@ -76,3 +76,28 @@ test('corrupt lines in the log are skipped, not fatal', () => {
   const store = new EventStore({ filePath: file });
   assert.equal(store.list().length, 1);
 });
+
+test('markCleared stamps clearedAt on matching events and persists', () => {
+  const file = tmpFile();
+  const a = new EventStore({ filePath: file });
+  a.add({ category: 'distress', mmsi: '111111111', receivedAt: '2026-06-06T12:00:00.000Z' });
+  a.add({ category: 'urgency', mmsi: '222222222', receivedAt: '2026-06-06T12:01:00.000Z' });
+  a.add({ category: 'distress', mmsi: '333333333', receivedAt: '2026-06-06T12:02:00.000Z' });
+
+  const n = a.markCleared((e) => e.category === 'distress', '2026-06-06T13:00:00.000Z');
+  assert.equal(n, 2); // returns count touched
+
+  // In-memory: only distress events stamped.
+  assert.equal(a.list().filter((e) => e.clearedAt).length, 2);
+  assert.equal(a.list().find((e) => e.category === 'urgency').clearedAt, undefined);
+
+  // Persisted: a reload sees the stamps.
+  const b = new EventStore({ filePath: file });
+  assert.equal(b.list().filter((e) => e.clearedAt === '2026-06-06T13:00:00.000Z').length, 2);
+
+  // Idempotent + zero-match: re-clearing distress now touches nothing.
+  assert.equal(a.markCleared((e) => e.category === 'distress', '2026-06-06T14:00:00.000Z'), 0);
+  assert.equal(a.markCleared(() => false, '2026-06-06T14:00:00.000Z'), 0);
+  // The original clear timestamp is preserved (not overwritten).
+  assert.ok(a.list().filter((e) => e.clearedAt === '2026-06-06T13:00:00.000Z').length === 2);
+});
