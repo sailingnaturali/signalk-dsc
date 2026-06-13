@@ -61,3 +61,18 @@ test('logbook text keeps the full detail the voice line drops', () => {
   assert.match(text, /2\.3 NM northwest of us/);
   assert.match(text, /via nmea0183/);
 });
+
+test('logbook text mentions the proposed working channel', () => {
+  const text = buildLogbookText({
+    category: 'routine',
+    mmsi: '338158137',
+    workingChannel: '72',
+    source: 'nmea0183',
+  });
+  assert.match(text, /proposed working channel 72/);
+});
+
+test('no working-channel clause when the call had none', () => {
+  const text = buildLogbookText({ category: 'routine', mmsi: '338158137' });
+  assert.doesNotMatch(text, /working channel/);
+});
