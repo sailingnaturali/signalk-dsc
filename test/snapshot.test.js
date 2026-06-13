@@ -73,3 +73,20 @@ test('buildObservations takes only valid codes and converts visibility', () => {
   assert.equal(buildObservations(undefined), undefined);
   assert.equal(buildObservations({ sog: 3.1 }), undefined);
 });
+
+test('captured objects are deep copies, and non-serializable values are skipped', () => {
+  const position = { latitude: 48.76, longitude: -123.05 };
+  const circular = {};
+  circular.self = circular;
+  const app = {
+    getSelfPath: (p) => {
+      if (p === 'navigation.position') return position;
+      if (p === 'some.circular.path') return circular;
+      return undefined;
+    },
+  };
+  const snap = captureOwnShip(app, [{ field: 'weird', path: 'some.circular.path' }]);
+  position.latitude = 0; // later mutation of the live model object
+  assert.equal(snap.position.latitude, 48.76);
+  assert.equal(snap.weird, undefined);
+});
