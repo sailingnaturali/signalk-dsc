@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
-    "send-test-dsc": "node scripts/send-test-dsc.js"
+    "send-test-dsc": "node scripts/send-test-dsc.js",
+    "clear-dsc": "node scripts/clear-dsc-alarm.js"
   },
   "keywords": [
     "signalk-node-server-plugin",
