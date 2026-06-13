@@ -51,7 +51,7 @@ For every DSC call heard by a connected radio:
   notification) under `vessels.urn:mrn:imo:mmsi:<caller>`, so chartplotters can
   show where the call came from.
 - Every stored call carries an `ownShip` snapshot of the moment it arrived —
-  position, course, speed, wind, pressure, and (when a source publishes them)
+  position, course, heading, speed, wind, pressure, and (when a source publishes them)
   sea state, visibility, and cloud coverage. Absent sensor, absent field.
 - Logbook entries are written with `vhf: "70"` (DSC is received on channel 70
   by definition) plus structured `observations`; non-distress calls that
@@ -85,7 +85,7 @@ For every DSC call heard by a connected radio:
 | `logbookRoutine` | `false` | Also log routine calls. |
 | `logbookUrl` | `http://localhost:3000/plugins/signalk-logbook/logs` | |
 | `logbookToken` | _empty_ | SignalK access token; logbook writes are skipped without one (plugin routes are auth-gated). |
-| `snapshotPaths` | `[]` | Extra `{ field, path }` pairs added to the `ownShip` snapshot on each stored call (position, course, speed, wind, pressure, sea state, visibility and cloud coverage are always attempted). |
+| `snapshotPaths` | `[]` | Extra `{ field, path }` pairs added to the `ownShip` snapshot on each stored call (position, course, heading, speed, wind, pressure, sea state, visibility and cloud coverage are always attempted). |
 
 ## Trying it without a radio
 
