@@ -375,6 +375,27 @@ test('logbook entry carries vhf 70 and observations from the snapshot', async ()
   plugin.stop();
 });
 
+test('a cleared alert is not re-raised after a restart', async () => {
+  const app = mockApp();
+  const fresh = new Date().toISOString();
+  fs.writeFileSync(
+    path.join(app.dataDir, 'dsc-calls.jsonl'),
+    JSON.stringify({
+      id: `${fresh}-338040079`,
+      receivedAt: fresh,
+      category: 'distress',
+      mmsi: '338040079',
+      natureOfDistress: 'sinking',
+      clearedAt: fresh, // operator cleared it
+    }) + '\n'
+  );
+  const plugin = makePlugin(app);
+  plugin.start({ reannounceDelayMs: 0 });
+  await new Promise((r) => setTimeout(r, 25));
+  assert.equal(app.deltas.length, 0); // fresh, but cleared → no re-raise
+  plugin.stop();
+});
+
 test('no observations key on the logbook entry when nothing is observed', async () => {
   const { server, received, port } = await logbookServer();
   const app = mockApp();

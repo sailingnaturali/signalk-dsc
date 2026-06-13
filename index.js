@@ -369,6 +369,7 @@ module.exports = function makePlugin(app) {
       for (let i = events.length - 1; i >= 0; i--) {
         const event = events[i];
         if (!NOTIFICATION_STATES[event.category] || reannounced.has(event.category)) continue;
+        if (event.clearedAt) continue; // operator-cleared: never resurrect
         const at = Date.parse(event.lastReceivedAt || event.receivedAt);
         if (now - at <= REANNOUNCE_WINDOW_MS) {
           notify(event);
