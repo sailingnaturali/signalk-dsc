@@ -166,6 +166,34 @@ the sender's vessel context is not persisted or re-raised, so it is left untouch
 - A raised distress notification stays active until cleared from the server —
   deliberate: a received MAYDAY should not silently expire.
 
+## Future work
+
+This plugin is **receive-only**: it reads, logs, and alarms on DSC calls a radio
+puts on the bus, and never transmits. The obvious next capability is the *write*
+path — initiating a DSC call from SignalK, e.g. relaying a MAYDAY or sending a
+distress/MOB alert *to* the radio to broadcast.
+
+The blocker is hardware, not software. Almost no marine VHF exposes an interface
+to be **commanded to transmit** a DSC call:
+
+- NMEA 0183 radios take a GPS position *in* and emit received calls *out*, but
+  there's no standard sentence to initiate a transmission.
+- On NMEA 2000, PGN 129808 carries received call info; there's no
+  widely-implemented PGN to command a transmit. Where "send distress from the
+  chartplotter" exists at all, it's proprietary same-vendor MFD↔radio
+  integration, not an open standard a third-party plugin can drive.
+
+The closest exception we've found is Icom's networked VHFs — the **M510 EVO** and
+**M605** — which expose external/remote DSC initiation, where most radios only
+let you initiate a DSC call on the radio itself. That makes them the realistic
+target for a transmit path.
+
+So a SignalK-driven relay is gated on a radio that actually supports external DSC
+transmission — still rare — plus the care that initiating a distress demands (it
+broadcasts on behalf of a real, licensed MMSI). Until such hardware is common
+this stays out of scope and the plugin remains a passive receiver. If you have a
+radio that exposes a transmit interface, open an issue.
+
 ## License
 
 MIT
