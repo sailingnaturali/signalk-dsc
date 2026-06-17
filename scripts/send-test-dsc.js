@@ -49,6 +49,11 @@ const CATEGORY_CODES = {
   distress: '12',
 };
 
+// 1st telecommand 21 = "ship position". Per ITU-R M.493 a non-distress call only
+// carries a position when this telecommand is set; otherwise field 5 is a working
+// channel. We always send a position, so non-distress calls use it (see buildSentence).
+const TELECOMMAND_SHIP_POSITION = '21';
+
 function parseArgs(argv) {
   const args = { host: 'naturalaspi.local', port: 7777, nature: 'sinking',
                  mmsi: '366191919', lat: 48.75, lon: -123.25, category: 'distress' };
@@ -88,13 +93,20 @@ function nmeaChecksum(body) {
 function buildSentence({ mmsi, category, nature, lat, lon }) {
   const formatCode = category === 'distress' ? '12' : category === 'urgency' ? '16' : category === 'safety' ? '16' : '20';
   const categoryCode = CATEGORY_CODES[category] ?? '12';
-  const natureCode = NATURE_CODES[nature] ?? '07';
   const mmsi10 = String(mmsi).padEnd(9, '0').substring(0, 9) + '0'; // 9-digit MMSI + trailing zero
   const pos = encodePosition(lat, lon);
   const now = new Date();
   const utcTime = `${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}`;
 
-  const body = `CDDSC,${formatCode},${mmsi10},${categoryCode},${natureCode},00,${pos},${utcTime},,,S,E`;
+  // Field 3 is the nature of distress on a distress alert, but the 1st telecommand
+  // on every other call — and a non-distress call only carries a position (field 5)
+  // when that telecommand is 21 (ship position). So distress -> nature, everything
+  // else -> 21, so the supplied --lat/--lon is honored for all categories.
+  const firstField = category === 'distress'
+    ? (NATURE_CODES[nature] ?? '07')
+    : TELECOMMAND_SHIP_POSITION;
+
+  const body = `CDDSC,${formatCode},${mmsi10},${categoryCode},${firstField},00,${pos},${utcTime},,,S,E`;
   return `$${body}*${nmeaChecksum(body)}`;
 }
 
