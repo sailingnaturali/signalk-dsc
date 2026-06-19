@@ -15,4 +15,4 @@ on:
 
 jobs:
   plugin-ci:
-    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@4592992aaf7c44548842be9390b651cfb816eaf4 # v2.27.0
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@3645160b235364e1fd3afe1f2f6b2270b8194b7d # v2.28.0
