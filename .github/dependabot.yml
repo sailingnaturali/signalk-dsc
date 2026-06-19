@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keeps the SignalK reusable plugin-ci.yml pin (and every other action we
+  # use) current — opens a single grouped PR when signalk-server cuts a release
+  # so the pin can't silently drift behind the latest tag.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
