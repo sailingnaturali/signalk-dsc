@@ -40,7 +40,7 @@ For every DSC call heard by a connected radio:
   caller name/MMSI, and times. To use it in Freeboard: Settings → Resources
   (Custom) → add resource type `dsc-call-markers`, reload, then toggle the
   per-category layers. Non-distress calls drop off after `markerWindowHours`
-  (default 24); an active (un-cleared) distress call stays until acknowledged.
+  (default 24); an active (un-cleared) distress call stays until you clear the alarm.
   This is the *detail* layer — distinct from the prominent live SaR marker a
   distress call also draws via the `sar.` context (see Remote-vessel deltas).
 - **Alarms under your own vessel** — `notifications.dsc.distress` (state

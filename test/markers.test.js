@@ -116,3 +116,15 @@ test('non-distress exactly at the window edge is included', () => {
   const sets = buildMarkerResourceSets([edge], { now: NOW, windowHours: 24 });
   assert.equal(sets.routine.values.features.length, 1);
 });
+
+test('relayed distress labels the casualty (distressedMmsi), not the relayer', () => {
+  const relay = evt({ mmsi: '003160001', distressedMmsi: '316200911' });
+  const sets = buildMarkerResourceSets([relay], {
+    now: NOW,
+    windowHours: 24,
+    nameFor: (mmsi) => (mmsi === '316200911' ? 'Wind Chaser' : 'Coast Station'),
+  });
+  const p = sets.distress.values.features[0].properties;
+  assert.equal(p.mmsi, '316200911');
+  assert.equal(p.vesselName, 'Wind Chaser');
+});
