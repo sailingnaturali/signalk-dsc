@@ -379,22 +379,21 @@ module.exports = function makePlugin(app) {
       },
     });
 
+    const buildSets = () =>
+      buildMarkerResourceSets(store.list(), {
+        now: Date.now(),
+        windowHours: options.markerWindowHours,
+        nameFor: vesselName,
+      });
+
     app.registerResourceProvider({
       type: 'dsc-call-markers',
       methods: {
         async listResources() {
-          return buildMarkerResourceSets(store.list(), {
-            now: Date.now(),
-            windowHours: options.markerWindowHours,
-            nameFor: vesselName,
-          });
+          return buildSets();
         },
         async getResource(id) {
-          const sets = buildMarkerResourceSets(store.list(), {
-            now: Date.now(),
-            windowHours: options.markerWindowHours,
-            nameFor: vesselName,
-          });
+          const sets = buildSets();
           if (!sets[id]) throw new Error(`No DSC calls in category: ${id}`);
           return sets[id];
         },
