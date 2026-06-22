@@ -4,6 +4,28 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2]
+
+### Added
+
+- "Works well with" App Store entry recommending the Logbook plugin
+  (`@meri-imperiumi/signalk-logbook`) via `signalk.recommends` — DSC call logs
+  pair naturally with the on-vessel logbook.
+
+### Fixed
+
+- Restored the plugin-CI workflow pin after a bad Dependabot bump to a dead
+  `signalk-server` ref had broken the cross-platform CI matrix shown on the App
+  Store Indicators tab.
+
+## [0.5.1]
+
+### Fixed
+
+- `dsc-call-markers` ResourceSets now carry `type: "ResourceSet"`, the
+  discriminator Freeboard-SK requires (`isResourceSet()`). Without it the chart
+  layer was served correctly but silently filtered out and rendered nothing.
+
 ## [0.5.0]
 
 ### Added
