@@ -29,6 +29,9 @@
   },
   "signalk": {
     "displayName": "DSC",
+    "recommends": [
+      "@meri-imperiumi/signalk-logbook"
+    ],
     "screenshots": [
       "./docs/screenshots/config.png",
       "./docs/screenshots/data-table.png"
