@@ -43,6 +43,9 @@ For every DSC call heard by a connected radio:
   (default 24); an active (un-cleared) distress call stays until you clear the alarm.
   This is the *detail* layer — distinct from the prominent live SaR marker a
   distress call also draws via the `sar.` context (see Remote-vessel deltas).
+
+  ![DSC distress markers in Freeboard-SK](docs/screenshots/freeboard-distress-markers.png)
+
 - **Alarms under your own vessel** — `notifications.dsc.distress` (state
   `emergency`), `notifications.dsc.urgency` (`alarm`), `notifications.dsc.safety`
   (`alert`). Routine calls never alarm. Repeated re-transmissions of the same
