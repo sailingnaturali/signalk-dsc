@@ -67,3 +67,18 @@ test('per-category default style carries the category colour', () => {
   const sets = buildMarkerResourceSets([evt()], { now: NOW, windowHours: 24 });
   assert.equal(sets.distress.styles.default.stroke, 'rgba(211,47,47,1)');
 });
+
+test('calls with an incomplete position (missing longitude) are skipped', () => {
+  const sets = buildMarkerResourceSets([evt({ position: { latitude: 48.9 } })], { now: NOW, windowHours: 24 });
+  assert.deepEqual(Object.keys(sets), []);
+});
+
+test('unknown-category calls get their own set with the routine fallback colour', () => {
+  const sets = buildMarkerResourceSets(
+    [evt({ category: 'unknown', natureOfDistress: undefined })],
+    { now: NOW, windowHours: 24 }
+  );
+  assert.ok(sets.unknown);
+  assert.equal(sets.unknown.values.features.length, 1);
+  assert.equal(sets.unknown.styles.default.stroke, 'rgba(117,117,117,1)');
+});
