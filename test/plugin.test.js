@@ -497,3 +497,30 @@ test('after a clear: a re-transmit stays silent but a new vessel re-alarms', asy
 
   plugin.stop();
 });
+
+test('start registers the dsc-call-markers resource provider', () => {
+  const app = mockApp();
+  const plugin = start(app);
+  assert.ok(app.resourceProviders['dsc-call-markers']);
+  plugin.stop();
+});
+
+test('dsc-call-markers is read-only', () => {
+  const app = mockApp();
+  const plugin = start(app);
+  const methods = app.resourceProviders['dsc-call-markers'].methods;
+  assert.throws(() => methods.setResource('x', {}));
+  assert.throws(() => methods.deleteResource('x'));
+  plugin.stop();
+});
+
+test('a distress call shows up in the dsc-call-markers distress set', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const sets = await app.resourceProviders['dsc-call-markers'].methods.listResources();
+  assert.ok(sets.distress);
+  assert.equal(sets.distress.values.features.length, 1);
+  assert.equal(sets.distress.values.features[0].geometry.type, 'Point');
+  plugin.stop();
+});

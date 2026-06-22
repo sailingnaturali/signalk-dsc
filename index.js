@@ -28,6 +28,7 @@ const { parseDsc } = require('./lib/dsc');
 const { parseDse, refinePosition } = require('./lib/dse');
 const { normalizePgn129808 } = require('./lib/pgn129808');
 const { EventStore } = require('./lib/store');
+const { buildMarkerResourceSets } = require('./lib/markers');
 const { buildMessage, buildLogbookText } = require('./lib/format');
 const { captureOwnShip, buildObservations, unwrap } = require('./lib/snapshot');
 
@@ -55,6 +56,13 @@ module.exports = function makePlugin(app) {
         title: 'Calls to keep',
         description: 'Oldest calls are dropped beyond this count.',
         default: 1000,
+      },
+      markerWindowHours: {
+        type: 'number',
+        title: 'Chart marker window (hours)',
+        description:
+          'Non-distress calls drop off the dsc-call-markers chart layer after this many hours. Active (un-cleared) distress calls always remain.',
+        default: 24,
       },
       logbookEnabled: {
         type: 'boolean',
@@ -336,6 +344,7 @@ module.exports = function makePlugin(app) {
   plugin.start = function (opts) {
     options = {
       maxEvents: 1000,
+      markerWindowHours: 24,
       logbookEnabled: true,
       logbookRoutine: false,
       logbookUrl: 'http://localhost:3000/plugins/signalk-logbook/logs',
@@ -366,6 +375,34 @@ module.exports = function makePlugin(app) {
         },
         deleteResource() {
           throw new Error('dsc-calls is read-only');
+        },
+      },
+    });
+
+    app.registerResourceProvider({
+      type: 'dsc-call-markers',
+      methods: {
+        async listResources() {
+          return buildMarkerResourceSets(store.list(), {
+            now: Date.now(),
+            windowHours: options.markerWindowHours,
+            nameFor: vesselName,
+          });
+        },
+        async getResource(id) {
+          const sets = buildMarkerResourceSets(store.list(), {
+            now: Date.now(),
+            windowHours: options.markerWindowHours,
+            nameFor: vesselName,
+          });
+          if (!sets[id]) throw new Error(`No DSC calls in category: ${id}`);
+          return sets[id];
+        },
+        setResource() {
+          throw new Error('dsc-call-markers is read-only');
+        },
+        deleteResource() {
+          throw new Error('dsc-call-markers is read-only');
         },
       },
     });
