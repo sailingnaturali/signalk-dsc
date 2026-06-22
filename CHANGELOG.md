@@ -4,6 +4,16 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0]
+
+### Changed
+
+- A **distress** caller's position is now emitted under the Search-and-Rescue
+  context `sar.urn:mrn:imo:mmsi:<caller>` instead of `vessels.…`. Chartplotters
+  (e.g. Freeboard-SK) render the `sar.` context as a distress/SaR target rather
+  than an ordinary AIS vessel, so a received MAYDAY now stands out on the chart.
+  Non-distress calls continue to report position under `vessels.…`.
+
 ## [0.3.0]
 
 ### Added

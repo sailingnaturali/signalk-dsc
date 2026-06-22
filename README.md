@@ -48,8 +48,12 @@ For every DSC call heard by a connected radio:
   Full detail (MMSI, coordinates, reported time, transport) goes to the call
   log and the logbook entry instead, so TTS pipelines stay terse.
 - **Remote-vessel deltas** — the caller's `navigation.position` (and a distress
-  notification) under `vessels.urn:mrn:imo:mmsi:<caller>`, so chartplotters can
-  show where the call came from.
+  notification) under the caller's context, so chartplotters can show where the
+  call came from. A **distress** caller is emitted under the Search-and-Rescue
+  context `sar.urn:mrn:imo:mmsi:<caller>` — which plotters like
+  [Freeboard-SK](https://github.com/SignalK/freeboard-sk) render as a distress
+  (SaR) target rather than an ordinary AIS vessel; every other category stays
+  under `vessels.urn:mrn:imo:mmsi:<caller>`.
 - Every stored call carries an `ownShip` snapshot of the moment it arrived —
   position, course, heading, speed, wind, pressure, and (when a source publishes them)
   sea state, visibility, and cloud coverage. Absent sensor, absent field.

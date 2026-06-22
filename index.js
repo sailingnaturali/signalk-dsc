@@ -244,8 +244,14 @@ module.exports = function makePlugin(app) {
     return event;
   }
 
-  function remoteContext(mmsi) {
-    return `vessels.urn:mrn:imo:mmsi:${mmsi}`;
+  // The SignalK context the caller's position is emitted under. A distress
+  // caller is a vessel in extremis, so it goes under the Search-and-Rescue
+  // context (`sar.`) — which chartplotters (e.g. Freeboard-SK) render as a
+  // distress/SaR target rather than an ordinary AIS vessel. Every other
+  // category stays under `vessels.` like any AIS contact.
+  function callerContext(category, mmsi) {
+    const prefix = category === 'distress' ? 'sar' : 'vessels';
+    return `${prefix}.urn:mrn:imo:mmsi:${mmsi}`;
   }
 
   // Custom sentence parsers override the stock hooks (a superset of the
@@ -263,8 +269,8 @@ module.exports = function makePlugin(app) {
         receivedAt: input.tags && input.tags.timestamp,
       });
 
-      // Upstream-compatible delta under the sender's context so chartplotters
-      // and AIS-style consumers see the caller's position.
+      // Delta under the caller's context so chartplotters and AIS-style
+      // consumers see the caller's position (distress → SaR target).
       if (parsed.mmsi) {
         const values = [];
         if (parsed.position) {
@@ -281,7 +287,10 @@ module.exports = function makePlugin(app) {
           });
         }
         if (values.length) {
-          return { context: remoteContext(parsed.mmsi), updates: [{ values }] };
+          return {
+            context: callerContext(parsed.category, parsed.mmsi),
+            updates: [{ values }],
+          };
         }
       }
     } catch (err) {
@@ -306,7 +315,7 @@ module.exports = function makePlugin(app) {
       const refined = refinePosition(target.position, ext);
       store.update(target.id, { position: refined, positionResolution: 'enhanced' });
       return {
-        context: remoteContext(ext.mmsi),
+        context: callerContext(target.category, ext.mmsi),
         updates: [{ values: [{ path: 'navigation.position', value: refined }] }],
       };
     } catch (err) {

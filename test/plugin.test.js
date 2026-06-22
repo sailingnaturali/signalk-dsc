@@ -87,8 +87,9 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
 
   const delta = app.parsers.DSC(sentenceInput(DISTRESS));
 
-  // Upstream-compatible delta under the sender's context (for chartplotters).
-  assert.equal(delta.context, 'vessels.urn:mrn:imo:mmsi:338040079');
+  // A vessel in distress is a Search-and-Rescue target: chartplotters render
+  // the `sar.` context as a distress marker, not an ordinary AIS vessel.
+  assert.equal(delta.context, 'sar.urn:mrn:imo:mmsi:338040079');
   const remotePaths = delta.updates[0].values.map((v) => v.path);
   assert.ok(remotePaths.includes('navigation.position'));
 
@@ -111,6 +112,21 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   plugin.stop();
 });
 
+test('a non-distress caller keeps the ordinary vessels context', () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  // Routine individual call carrying a ship-position telecommand (tc 21):
+  // it has a position to plot, but it is not distress, so it stays a normal
+  // AIS vessel rather than a SaR target.
+  const ROUTINE = '$CDDSC,20,3381581370,00,21,26,1423108312,1902,,,B,E*7B';
+  const delta = app.parsers.DSC(sentenceInput(ROUTINE));
+
+  assert.equal(delta.context, 'vessels.urn:mrn:imo:mmsi:338158137');
+  assert.ok(delta.updates[0].values.map((v) => v.path).includes('navigation.position'));
+  plugin.stop();
+});
+
 test('a following DSE refines the stored position', async () => {
   const app = mockApp();
   const plugin = start(app);
@@ -118,7 +134,9 @@ test('a following DSE refines the stored position', async () => {
   app.parsers.DSC(sentenceInput(DISTRESS));
   const delta = app.parsers.DSE(sentenceInput(DSE));
 
-  assert.equal(delta.context, 'vessels.urn:mrn:imo:mmsi:338040079');
+  // DSE refines the position of the matched distress call, so it follows the
+  // same SaR context the distress alert was emitted under.
+  assert.equal(delta.context, 'sar.urn:mrn:imo:mmsi:338040079');
   const refined = delta.updates[0].values[0].value;
   assert.ok(Math.abs(refined.latitude - (42 + 31.4589 / 60)) < 1e-9);
 
