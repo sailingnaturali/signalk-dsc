@@ -29,6 +29,13 @@ test('groups calls into per-category ResourceSets with FeatureCollection values'
   assert.equal(sets.distress.values.features.length, 1);
 });
 
+test('each set is tagged type "ResourceSet" so Freeboard accepts it', () => {
+  // Freeboard's isResourceSet() filters out anything whose `type` is not
+  // exactly "ResourceSet" — without this tag the layer silently renders nothing.
+  const sets = buildMarkerResourceSets([evt()], { now: NOW, windowHours: 24 });
+  assert.equal(sets.distress.type, 'ResourceSet');
+});
+
 test('each feature is a GeoJSON Point with [lon, lat] order', () => {
   const sets = buildMarkerResourceSets([evt()], { now: NOW, windowHours: 24 });
   const f = sets.distress.values.features[0];
