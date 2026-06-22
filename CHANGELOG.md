@@ -4,6 +4,15 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0]
+
+### Added
+
+- New read-only `dsc-call-markers` resource (`/signalk/v2/api/resources/dsc-call-markers`):
+  logged calls served as Freeboard-SK ResourceSets, one per category, as GeoJSON
+  Point markers with nature / caller / time in the popup. Recency governed by the
+  new `markerWindowHours` option (default 24); active distress stays until cleared.
+
 ## [0.4.0]
 
 ### Changed

@@ -33,6 +33,16 @@ For every DSC call heard by a connected radio:
   `GET /signalk/v2/api/resources/dsc-calls` (anonymously readable when the server
   allows read-only access). Raw sentence/PGN is always kept alongside the parsed
   fields: time, MMSI, category, nature of distress, position, UTC time.
+- **A chart-marker layer** — `GET /signalk/v2/api/resources/dsc-call-markers`
+  serves logged calls as [Freeboard-SK](https://github.com/SignalK/freeboard-sk)
+  ResourceSets, one per category (distress/urgency/safety/routine), each a
+  GeoJSON `FeatureCollection` of Point markers whose popup carries the nature,
+  caller name/MMSI, and times. To use it in Freeboard: Settings → Resources
+  (Custom) → add resource type `dsc-call-markers`, reload, then toggle the
+  per-category layers. Non-distress calls drop off after `markerWindowHours`
+  (default 24); an active (un-cleared) distress call stays until acknowledged.
+  This is the *detail* layer — distinct from the prominent live SaR marker a
+  distress call also draws via the `sar.` context (see Remote-vessel deltas).
 - **Alarms under your own vessel** — `notifications.dsc.distress` (state
   `emergency`), `notifications.dsc.urgency` (`alarm`), `notifications.dsc.safety`
   (`alert`). Routine calls never alarm. Repeated re-transmissions of the same
@@ -85,6 +95,7 @@ For every DSC call heard by a connected radio:
 | Option | Default | Notes |
 | --- | --- | --- |
 | `maxEvents` | `1000` | Oldest calls dropped beyond this. |
+| `markerWindowHours` | `24` | Non-distress calls leave the `dsc-call-markers` chart layer after this many hours; active distress stays until cleared. |
 | `logbookEnabled` | `true` | Requires signalk-logbook and a token. |
 | `logbookRoutine` | `false` | Also log routine calls. |
 | `logbookUrl` | `http://localhost:3000/plugins/signalk-logbook/logs` | |
