@@ -82,3 +82,27 @@ test('unknown-category calls get their own set with the routine fallback colour'
   assert.equal(sets.unknown.values.features.length, 1);
   assert.equal(sets.unknown.styles.default.stroke, 'rgba(117,117,117,1)');
 });
+
+test('non-distress older than the window is excluded', () => {
+  const old = evt({ category: 'routine', natureOfDistress: undefined, receivedAt: '2026-06-20T10:00:00Z' });
+  const sets = buildMarkerResourceSets([old], { now: NOW, windowHours: 24 });
+  assert.deepEqual(Object.keys(sets), []);
+});
+
+test('non-distress within the window is included', () => {
+  const recent = evt({ category: 'routine', natureOfDistress: undefined, receivedAt: '2026-06-21T10:00:00Z' });
+  const sets = buildMarkerResourceSets([recent], { now: NOW, windowHours: 24 });
+  assert.equal(sets.routine.values.features.length, 1);
+});
+
+test('un-cleared distress older than the window is still shown', () => {
+  const oldDistress = evt({ receivedAt: '2026-06-19T10:00:00Z' });
+  const sets = buildMarkerResourceSets([oldDistress], { now: NOW, windowHours: 24 });
+  assert.equal(sets.distress.values.features.length, 1);
+});
+
+test('cleared distress is excluded once outside the window', () => {
+  const clearedOld = evt({ receivedAt: '2026-06-19T10:00:00Z', clearedAt: '2026-06-19T10:05:00Z' });
+  const sets = buildMarkerResourceSets([clearedOld], { now: NOW, windowHours: 24 });
+  assert.deepEqual(Object.keys(sets), []);
+});
