@@ -106,3 +106,13 @@ test('cleared distress is excluded once outside the window', () => {
   const sets = buildMarkerResourceSets([clearedOld], { now: NOW, windowHours: 24 });
   assert.deepEqual(Object.keys(sets), []);
 });
+
+test('non-distress exactly at the window edge is included', () => {
+  const edge = evt({
+    category: 'routine',
+    natureOfDistress: undefined,
+    receivedAt: '2026-06-20T20:00:00Z', // exactly 24h before NOW
+  });
+  const sets = buildMarkerResourceSets([edge], { now: NOW, windowHours: 24 });
+  assert.equal(sets.routine.values.features.length, 1);
+});
