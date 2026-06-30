@@ -62,6 +62,32 @@ test('logbook text keeps the full detail the voice line drops', () => {
   assert.match(text, /via nmea0183/);
 });
 
+const RELAY_EVENT = {
+  category: 'distress',
+  relay: true,
+  mmsi: '003160001', // relaying station
+  distressedMmsi: '316200911', // casualty
+  natureOfDistress: 'epirb',
+  position: { latitude: 48.795, longitude: -123.265 },
+  utcTime: '20:19',
+  source: 'nmea0183',
+};
+
+test('a relay is spoken as a distress relay, not a first-party alert', () => {
+  const msg = buildMessage(RELAY_EVENT, { ownPosition: OWN_POSITION });
+  assert.match(msg, /^DSC distress relay:/);
+  assert.match(msg, /EPIRB emission/);
+  assert.match(msg, /Monitor channel 16\.$/);
+});
+
+test('relay logbook entry names the casualty and the relaying station', () => {
+  const text = buildLogbookText(RELAY_EVENT, {});
+  assert.match(text, /DISTRESS RELAY/);
+  assert.match(text, /316200911/); // the casualty
+  assert.match(text, /003160001/); // the relaying station
+  assert.match(text, /EPIRB emission/);
+});
+
 test('logbook text mentions the proposed working channel', () => {
   const text = buildLogbookText({
     category: 'routine',

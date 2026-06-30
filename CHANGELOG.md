@@ -4,6 +4,23 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- DSC distress **relays** are now recognised as relays (`relay: true`) across
+  both the NMEA 0183 and NMEA 2000 (PGN 129808) paths, and narrated as a "DSC
+  distress relay" naming the casualty rather than as a first-party alert.
+- AIS device-beacon MMSIs (`970…` SART, `972…` MOB, `974…` EPIRB) are tagged
+  with `deviceBeacon` so a direct DSC distress can be correlated with the
+  matching AIS target.
+
+### Fixed
+
+- A distress relay now reads the nature of distress from the correct field
+  (field 8) instead of the relay telecommand in field 3, and reports the
+  casualty's MMSI rather than the relaying station's.
+
 ## [0.5.2]
 
 ### Added

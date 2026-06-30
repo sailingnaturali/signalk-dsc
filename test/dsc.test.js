@@ -69,6 +69,63 @@ test('distress cancellation carries the cancelling vessel MMSI', () => {
   assert.equal(ev.distressedMmsi, '338158137');
 });
 
+test('EPIRB MAYDAY relay is flagged and names the casualty, not the relaying station', () => {
+  // An all-ships distress relay of an EPIRB activation: a coast/ship station
+  // (field 1) re-broadcasts another vessel's distress. Format is allShips (not
+  // distressAlert); field 3 is the relay telecommand (112), the casualty's
+  // MMSI is in field 7, the casualty's position in field 5.
+  const ev = parseDsc(parts('$CDDSC,16,0031600010,12,112,00,1423108312,2019,3162009110,12,,*00'));
+  assert.equal(ev.format, 'allShips');
+  assert.equal(ev.category, 'distress');
+  assert.equal(ev.relay, true);
+  assert.equal(ev.mmsi, '003160001'); // the relaying station
+  assert.equal(ev.distressedMmsi, '316200911'); // the vessel in distress
+  assert.ok(ev.position); // 1423108312 → NW quadrant, casualty position
+  assert.equal(ev.utcTime, '20:19');
+});
+
+test('EPIRB relay reads nature of distress from field 8, not the relay telecommand', () => {
+  // In a relay, field 3 is the relay telecommand (112), not a nature code, and
+  // the nature lives in field 8 (12 = EPIRB emission). Reading field 3 as a
+  // nature would mis-resolve (112 → 'undesignated'); the real nature is 'epirb'.
+  const ev = parseDsc(parts('$CDDSC,16,0031600010,12,112,00,1423108312,2019,3162009110,12,,*00'));
+  assert.equal(ev.natureOfDistress, 'epirb');
+});
+
+test('relay nature field is still sanitised against unsafe tokens', () => {
+  // Field 8 arrives over the air like every other field — a hostile value must
+  // collapse to a safe constant, same guard as the field-3 path (#2768).
+  const ev = parseDsc(parts('$CDDSC,16,0031600010,12,112,00,1423108312,2019,3162009110,__proto__,,*00'));
+  assert.equal(ev.natureOfDistress, 'undesignated');
+});
+
+test('first-party distress alert is not flagged as a relay', () => {
+  const ev = parseDsc(parts('$CDDSC,12,3380400790,12,06,00,1423108312,2019,,,S,E*6A'));
+  assert.equal(ev.relay, undefined);
+  assert.equal(ev.natureOfDistress, 'adrift'); // still read from field 3
+});
+
+test('AIS EPIRB sending DSC directly is tagged as an EPIRB device beacon', () => {
+  // Modern AIS EPIRBs (device MMSI 974MMMMMM) broadcast their own DSC distress
+  // directly — a first-party alert, not a relay. Tagging the device class lets
+  // the consumer correlate it with the matching AIS-EPIRB target.
+  const ev = parseDsc(parts('$CDDSC,12,9743210980,12,12,00,1423108312,2019,,,S,E*00'));
+  assert.equal(ev.category, 'distress');
+  assert.equal(ev.mmsi, '974321098');
+  assert.equal(ev.natureOfDistress, 'epirb');
+  assert.equal(ev.relay, undefined);
+  assert.equal(ev.deviceBeacon, 'epirb');
+});
+
+test('AIS MOB and SART device MMSIs are tagged distinctly; ordinary ships are not', () => {
+  const mob = parseDsc(parts('$CDDSC,12,9723210980,12,10,00,1423108312,2019,,,S,E*00'));
+  assert.equal(mob.deviceBeacon, 'mob');
+  const sart = parseDsc(parts('$CDDSC,12,9703210980,12,07,00,1423108312,2019,,,S,E*00'));
+  assert.equal(sart.deviceBeacon, 'sart');
+  const ship = parseDsc(parts('$CDDSC,12,3380400790,12,06,00,1423108312,2019,,,S,E*6A'));
+  assert.equal(ship.deviceBeacon, undefined);
+});
+
 test('routine individual call with ship position telecommand', () => {
   const ev = parseDsc(parts('$CDDSC,20,3381581370,00,21,26,1423108312,1902,,,B,E*7B'));
   assert.equal(ev.format, 'individual');

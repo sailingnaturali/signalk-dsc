@@ -78,6 +78,44 @@ test('urgency category, all-ships format', () => {
   assert.equal(ev.category, 'urgency');
 });
 
+test('distress relay (all-ships distress) is flagged and keeps casualty + nature', () => {
+  const ev = normalizePgn129808({
+    pgn: 129808,
+    fields: {
+      dscFormat: 'All ships',
+      dscCategory: 'Distress',
+      dscMessageAddress: 3160001, // relaying station
+      natureOfDistress: 'EPIRB emission',
+      latitudeOfVesselReported: 48.79,
+      longitudeOfVesselReported: -123.26,
+      timeOfPosition: '20:19:00',
+      mmsiOfShipInDistress: 316200911, // casualty
+    },
+  });
+  assert.equal(ev.format, 'allShips');
+  assert.equal(ev.category, 'distress');
+  assert.equal(ev.relay, true);
+  assert.equal(ev.natureOfDistress, 'epirb');
+  assert.equal(ev.distressedMmsi, '316200911');
+});
+
+test('first-party N2K distress alert is not flagged as a relay', () => {
+  const ev = normalizePgn129808({
+    pgn: 129808,
+    fields: { dscFormat: 'Distress', dscCategory: 'Distress', dscMessageAddress: 338040079, natureOfDistress: 'Sinking' },
+  });
+  assert.equal(ev.relay, undefined);
+});
+
+test('AIS EPIRB device-beacon MMSI is tagged on the N2K path too', () => {
+  const ev = normalizePgn129808({
+    pgn: 129808,
+    fields: { dscFormat: 'Distress', dscCategory: 'Distress', dscMessageAddress: 974321098, natureOfDistress: 'EPIRB emission' },
+  });
+  assert.equal(ev.deviceBeacon, 'epirb');
+  assert.equal(ev.relay, undefined);
+});
+
 test('missing fields produce an unknown-category event, not a throw', () => {
   const ev = normalizePgn129808({ pgn: 129808, fields: {} });
   assert.equal(ev.category, 'unknown');
