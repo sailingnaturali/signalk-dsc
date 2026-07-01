@@ -34,6 +34,7 @@ const {
   buildLogbookText,
   captureOwnShip,
   buildObservations,
+  createNotifier,
   unwrap,
   writeLogbookEntry,
 } = require('@sailingnaturali/signalk-distress-core');
@@ -142,37 +143,33 @@ module.exports = function makePlugin(app) {
     };
   }
 
+  // Notification plumbing (raise/clear/reannounce) is shared with
+  // signalk-ais-distress via signalk-distress-core. A non-alarming category
+  // (routine/unknown, not in NOTIFICATION_STATES) makes raise a no-op.
+  const notifier = createNotifier({
+    app,
+    pluginId: plugin.id,
+    pathFor: (event) => `notifications.dsc.${event.category}`,
+    stateFor: (event) => NOTIFICATION_STATES[event.category],
+  });
+
+  // Rebuild the spoken message against the current own-ship position — range
+  // and direction shift as we move. Terse on purpose: this string gets spoken;
+  // full detail lives in the resource store and the logbook entry.
+  function refreshMessage(event) {
+    event.message = buildMessage(event, messageContext(event));
+    return event;
+  }
+
   function notify(event) {
-    const state = NOTIFICATION_STATES[event.category];
-    if (!state) return;
-    app.handleMessage(plugin.id, {
-      updates: [
-        {
-          values: [
-            {
-              path: `notifications.dsc.${event.category}`,
-              value: {
-                state,
-                method: ['visual', 'sound'],
-                // Kept terse on purpose: this string gets spoken by the
-                // voice pipeline. Full detail lives in the resource store
-                // and the logbook entry.
-                message: buildMessage(event, messageContext(event)),
-                timestamp: event.receivedAt,
-              },
-            },
-          ],
-        },
-      ],
-    });
+    refreshMessage(event);
+    notifier.raise(event);
   }
 
   /** Clear an active DSC alarm: drop the live notification from our own source
    *  and stamp the stored events so the restart reannounce skips them. */
   function clearCategory(category) {
-    app.handleMessage(plugin.id, {
-      updates: [{ values: [{ path: `notifications.dsc.${category}`, value: null }] }],
-    });
+    notifier.clear(`notifications.dsc.${category}`);
     store.markCleared((e) => e.category === category, new Date().toISOString());
   }
 
@@ -420,23 +417,14 @@ module.exports = function makePlugin(app) {
     // Survive server restarts mid-incident: re-raise the newest alert per
     // category that is still fresh (a received MAYDAY must not vanish just
     // because the server bounced). Delayed so position providers are up and
-    // the spoken message can say "N miles <direction>" instead of raw
-    // coordinates.
+    // the refreshed spoken message can say "N miles <direction>" instead of raw
+    // coordinates. Non-alarming categories are skipped by raise's no-op path.
     reannounceTimer = setTimeout(() => {
       if (!started) return;
-      const now = Date.now();
-      const reannounced = new Set();
-      const events = store.list();
-      for (let i = events.length - 1; i >= 0; i--) {
-        const event = events[i];
-        if (!NOTIFICATION_STATES[event.category] || reannounced.has(event.category)) continue;
-        if (event.clearedAt) continue; // operator-cleared: never resurrect
-        const at = Date.parse(event.lastReceivedAt || event.receivedAt);
-        if (now - at <= REANNOUNCE_WINDOW_MS) {
-          notify(event);
-          reannounced.add(event.category);
-        }
-      }
+      notifier.reannounce(store.list(), {
+        window: REANNOUNCE_WINDOW_MS,
+        prepare: refreshMessage,
+      });
     }, options.reannounceDelayMs ?? 30000);
   };
 

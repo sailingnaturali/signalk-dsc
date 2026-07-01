@@ -6,10 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.5]
 
+### Fixed
+
+- A distress alert that keeps auto-repeating past the 5-minute dedupe window no
+  longer re-alarms every window or resurrects an operator's clear. Via
+  `@sailingnaturali/signalk-distress-core` 0.3.0's `findRecent` fix, repeats now
+  slide the dedupe window forward, so one MAYDAY stays one stored call, alarmed
+  once, and a cleared alarm stays cleared while the radio keeps repeating it.
+
 ### Changed
 
-- Logbook writes now use `writeLogbookEntry` from `@sailingnaturali/signalk-distress-core`
-  (bumped to `^0.2.0`) instead of an inline `fetch`. No behavior change.
+- Notification raise/clear and restart-reannounce now use the shared
+  `createNotifier` from `@sailingnaturali/signalk-distress-core` (bumped to
+  `^0.3.0`), replacing the hand-rolled notification delta and the duplicated
+  inline reannounce loop. Behavior is preserved (per-category state, the
+  `timestamp` field, newest-per-category re-raise). Logbook writes already use
+  the core `writeLogbookEntry`.
 
 ## [0.5.4]
 
