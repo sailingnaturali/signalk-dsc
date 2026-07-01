@@ -35,6 +35,7 @@ const {
   captureOwnShip,
   buildObservations,
   unwrap,
+  writeLogbookEntry,
 } = require('@sailingnaturali/signalk-distress-core');
 
 const DSC_PGN = 129808;
@@ -185,26 +186,14 @@ module.exports = function makePlugin(app) {
   }
 
   async function postLogbook(event) {
-    const observations = buildObservations(event.ownShip);
-    const res = await fetch(options.logbookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // signalk-server's auth gate reads the Authorization header; the
-        // logbook plugin reads the author from the JAUTHENTICATION cookie.
-        Authorization: `Bearer ${options.logbookToken}`,
-        Cookie: `JAUTHENTICATION=${options.logbookToken}`,
-      },
-      body: JSON.stringify({
-        text: buildLogbookText(event, messageContext(event)),
-        ago: 0,
-        category: 'radio',
-        // DSC is received on VHF channel 70 by definition.
-        vhf: '70',
-        ...(observations ? { observations } : {}),
-      }),
+    await writeLogbookEntry({
+      url: options.logbookUrl,
+      token: options.logbookToken,
+      text: buildLogbookText(event, messageContext(event)),
+      observations: buildObservations(event.ownShip),
+      // DSC is received on VHF channel 70 by definition.
+      extra: { vhf: '70' },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
   }
 
   /** Store a normalized call, alarm on it, and log it. Returns the stored event. */

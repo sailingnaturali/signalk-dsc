@@ -4,6 +4,13 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5]
+
+### Changed
+
+- Logbook writes now use `writeLogbookEntry` from `@sailingnaturali/signalk-distress-core`
+  (bumped to `^0.2.0`) instead of an inline `fetch`. No behavior change.
+
 ## [0.5.4]
 
 ### Changed
