@@ -11,5 +11,5 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-      # Zero dependencies — nothing to install; just run the built-in test runner.
-      - run: node --test
+      - run: npm ci
+      - run: npm test
