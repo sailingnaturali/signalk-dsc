@@ -27,10 +27,15 @@ const path = require('node:path');
 const { parseDsc } = require('./lib/dsc');
 const { parseDse, refinePosition } = require('./lib/dse');
 const { normalizePgn129808 } = require('./lib/pgn129808');
-const { EventStore } = require('./lib/store');
-const { buildMarkerResourceSets } = require('./lib/markers');
-const { buildMessage, buildLogbookText } = require('./lib/format');
-const { captureOwnShip, buildObservations, unwrap } = require('./lib/snapshot');
+const {
+  EventStore,
+  buildMarkerResourceSets,
+  buildMessage,
+  buildLogbookText,
+  captureOwnShip,
+  buildObservations,
+  unwrap,
+} = require('@sailingnaturali/signalk-distress-core');
 
 const DSC_PGN = 129808;
 const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
