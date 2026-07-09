@@ -524,3 +524,146 @@ test('a distress call shows up in the dsc-call-markers distress set', async () =
   assert.equal(sets.distress.values.features[0].geometry.type, 'Point');
   plugin.stop();
 });
+
+// DSCWatch stand-in: collects every POST, answers 201 like the real API.
+function dscwatchServer() {
+  const requests = [];
+  const waiters = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      requests.push({ url: req.url, headers: req.headers, body: JSON.parse(body) });
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', id: requests.length, created: true }));
+      for (const w of [...waiters]) w();
+    });
+  });
+  // Resolves once `count` requests have arrived.
+  const until = (count) =>
+    new Promise((resolve) => {
+      const check = () => {
+        if (requests.length >= count) resolve(requests.slice(0, count));
+      };
+      waiters.push(check);
+      check();
+    });
+  return new Promise((r) =>
+    server.listen(0, '127.0.0.1', () => r({ server, requests, until, port: server.address().port }))
+  );
+}
+
+test('DSCWatch: disabled by default — no reports leave the boat', async () => {
+  const { server, requests, port } = await dscwatchServer();
+  const app = mockApp();
+  const plugin = start(app, { dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report` });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(requests.length, 0);
+  server.close();
+  plugin.stop();
+});
+
+test('DSCWatch: a distress alert is reported with a persisted UUID receiver key', async () => {
+  const { server, until, port } = await dscwatchServer();
+  const app = mockApp();
+  const plugin = start(app, {
+    dscwatchEnabled: true,
+    dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const [req] = await until(1);
+  const key = req.url.split('/').pop();
+  assert.match(key, /^[0-9a-f-]{36}$/);
+  assert.equal(
+    fs.readFileSync(path.join(app.dataDir, 'dscwatch-receiver-key'), 'utf8').trim(),
+    key
+  );
+  assert.match(req.headers['user-agent'], /^signalk-dsc\//);
+  assert.equal(req.body.category, 'distress');
+  assert.equal(req.body.mmsi, '338040079');
+  assert.equal(req.body.natureOfDistress, 'sinking');
+  assert.equal(req.body.raw, DISTRESS);
+  // Local-only fields never leave the boat.
+  assert.equal('message' in req.body, false);
+  assert.equal('ownShip' in req.body, false);
+  server.close();
+  plugin.stop();
+});
+
+test('DSCWatch: a configured receiver key (MMSI) is used verbatim', async () => {
+  const { server, until, port } = await dscwatchServer();
+  const app = mockApp();
+  const plugin = start(app, {
+    dscwatchEnabled: true,
+    dscwatchReceiverKey: '368000001',
+    dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const [req] = await until(1);
+  assert.equal(req.url, '/api/v1/report/368000001');
+  server.close();
+  plugin.stop();
+});
+
+test('DSCWatch: repeats are POSTed even though the store dedupes them', async () => {
+  const { server, until, port } = await dscwatchServer();
+  const app = mockApp();
+  const plugin = start(app, {
+    dscwatchEnabled: true,
+    dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  app.parsers.DSC(sentenceInput(DISTRESS)); // re-transmission
+
+  const reqs = await until(2);
+  assert.equal(reqs[0].body.mmsi, reqs[1].body.mmsi);
+  // Local store still deduped to one event with one alarm.
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  assert.equal(events.length, 1);
+  assert.equal(app.deltas.length, 1);
+  server.close();
+  plugin.stop();
+});
+
+test('DSCWatch: a DSE refinement is its own POST with positionRefined', async () => {
+  const { server, until, port } = await dscwatchServer();
+  const app = mockApp();
+  const plugin = start(app, {
+    dscwatchEnabled: true,
+    dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  app.parsers.DSE(sentenceInput(DSE));
+
+  const reqs = await until(2);
+  const refinement = reqs[1].body;
+  assert.equal(refinement.positionRefined, true);
+  assert.equal(refinement.positionResolution, 'enhanced');
+  assert.equal(refinement.raw, DSE); // the DSE sentence, not the original DSC
+  assert.equal(refinement.mmsi, '338040079');
+  assert.ok(Math.abs(refinement.position.latitude - (42 + 31.4589 / 60)) < 1e-9);
+  server.close();
+  plugin.stop();
+});
+
+test('DSCWatch: ownPosition rides along when the receiver has a fix; self flag on own calls', async () => {
+  const { server, until, port } = await dscwatchServer();
+  const app = mockApp();
+  app.getSelfPath = (p) => {
+    if (p === 'mmsi') return '338040079'; // the DISTRESS sentence's own MMSI
+    if (p === 'navigation.position') return { value: { latitude: 48.76, longitude: -123.23 } };
+    return undefined;
+  };
+  const plugin = start(app, {
+    dscwatchEnabled: true,
+    dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+  const [req] = await until(1);
+  assert.deepEqual(req.body.ownPosition, { latitude: 48.76, longitude: -123.23 });
+  assert.equal(req.body.self, true);
+  server.close();
+  plugin.stop();
+});

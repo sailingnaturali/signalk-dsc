@@ -37,7 +37,12 @@ const {
   createNotifier,
   unwrap,
   writeLogbookEntry,
+  createReporter,
+  loadOrCreateReceiverKey,
 } = require('@sailingnaturali/signalk-distress-core');
+
+const { buildReport } = require('./lib/dscwatch');
+const { version } = require('./package.json');
 
 const DSC_PGN = 129808;
 const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
@@ -107,10 +112,31 @@ module.exports = function makePlugin(app) {
           },
         },
       },
+      dscwatchEnabled: {
+        type: 'boolean',
+        title: 'Report received calls to DSCWatch.com',
+        description:
+          'Opt-in: submit every received DSC call — including your receiver position — to the DSCWatch crowdsourced receiver network. Undelivered reports queue on disk and catch up when connectivity returns.',
+        default: false,
+      },
+      dscwatchReceiverKey: {
+        type: 'string',
+        title: 'DSCWatch receiver key',
+        description:
+          'Leave blank to use an auto-generated station UUID (persisted in the plugin data directory), or enter this station\'s 9-digit MMSI for attribution.',
+        default: '',
+      },
+      dscwatchUrl: {
+        type: 'string',
+        title: 'DSCWatch endpoint',
+        description: 'Base report URL; the receiver key is appended. Override for testing only.',
+        default: 'https://dscwatch.com/api/v1/report',
+      },
     },
   };
 
   let store = null;
+  let reporter = null;
   let options = {};
   let started = false;
   let reannounceTimer = null;
@@ -141,6 +167,14 @@ module.exports = function makePlugin(app) {
       ownPosition: selfPosition(),
       vesselName: vesselName(event.distressedMmsi || event.mmsi),
     };
+  }
+
+  // Fire-behind submission to DSCWatch (crowdsourced DSC receiver network).
+  // Called before/independent of the store dedupe: the API wants every radio
+  // repeat and every DSE refinement as its own POST — the backend dedupes.
+  function reportToDscwatch(event, extra) {
+    if (!reporter) return;
+    reporter.report(buildReport({ ...event, ...extra }, { ownPosition: selfPosition() }));
   }
 
   // Notification plumbing (raise/clear/reannounce) is shared with
@@ -202,6 +236,8 @@ module.exports = function makePlugin(app) {
       ...parsed,
     };
     if (event.mmsi && event.mmsi === selfMmsi()) event.self = true;
+
+    reportToDscwatch(event);
 
     // Re-transmission of the same call (distress alerts auto-repeat until
     // acknowledged): bump the stored call, do not re-alarm. This matches on
@@ -313,6 +349,11 @@ module.exports = function makePlugin(app) {
 
       const refined = refinePosition(target.position, ext);
       store.update(target.id, { position: refined, positionResolution: 'enhanced' });
+      reportToDscwatch(target, {
+        receivedAt: new Date(now).toISOString(),
+        raw: input.sentence,
+        positionRefined: true,
+      });
       return {
         context: callerContext(target.category, ext.mmsi),
         updates: [{ values: [{ path: 'navigation.position', value: refined }] }],
@@ -340,6 +381,9 @@ module.exports = function makePlugin(app) {
       logbookRoutine: false,
       logbookUrl: 'http://localhost:3000/plugins/signalk-logbook/logs',
       logbookToken: '',
+      dscwatchEnabled: false,
+      dscwatchReceiverKey: '',
+      dscwatchUrl: 'https://dscwatch.com/api/v1/report',
       ...opts,
     };
 
@@ -347,6 +391,21 @@ module.exports = function makePlugin(app) {
       filePath: path.join(app.getDataDirPath(), 'dsc-calls.jsonl'),
       maxEvents: options.maxEvents,
     });
+
+    if (options.dscwatchEnabled) {
+      const receiverKey =
+        options.dscwatchReceiverKey.trim() ||
+        loadOrCreateReceiverKey(path.join(app.getDataDirPath(), 'dscwatch-receiver-key'));
+      reporter = createReporter({
+        url: `${options.dscwatchUrl.replace(/\/+$/, '')}/${receiverKey}`,
+        userAgent: `signalk-dsc/${version}`,
+        queueFile: path.join(app.getDataDirPath(), 'dscwatch-queue.jsonl'),
+        log: (msg) => app.debug(msg),
+        onPermanentError: (status) =>
+          app.setPluginStatus(`DSCWatch: receiver key rejected (HTTP ${status}) — check configuration`),
+      });
+      reporter.start();
+    }
 
     app.registerResourceProvider({
       type: 'dsc-calls',
@@ -432,6 +491,10 @@ module.exports = function makePlugin(app) {
     started = false;
     clearTimeout(reannounceTimer);
     app.removeListener('N2KAnalyzerOut', onPgn);
+    if (reporter) {
+      reporter.stop();
+      reporter = null;
+    }
   };
 
   return plugin;
