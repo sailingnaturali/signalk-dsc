@@ -648,6 +648,20 @@ test('DSCWatch: a DSE refinement is its own POST with positionRefined', async ()
   plugin.stop();
 });
 
+test('DSCWatch: an unwritable data dir disables reporting but never blocks plugin start', () => {
+  const app = mockApp();
+  const blocker = path.join(app.dataDir, 'not-a-dir');
+  fs.writeFileSync(blocker, 'x'); // regular file
+  app.getDataDirPath = () => path.join(blocker, 'sub'); // fs ops here throw ENOTDIR
+  const errors = [];
+  app.error = (m) => errors.push(m);
+  const plugin = start(app, { dscwatchEnabled: true });
+  assert.ok(app.parsers.DSC, 'parsers must still register');
+  assert.ok(app.resourceProviders['dsc-calls'], 'resource provider must still register');
+  assert.ok(errors.some((m) => /DSCWatch reporting disabled/.test(m)));
+  plugin.stop();
+});
+
 test('DSCWatch: ownPosition rides along when the receiver has a fix; self flag on own calls', async () => {
   const { server, until, port } = await dscwatchServer();
   const app = mockApp();

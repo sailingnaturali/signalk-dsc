@@ -393,18 +393,23 @@ module.exports = function makePlugin(app) {
     });
 
     if (options.dscwatchEnabled) {
-      const receiverKey =
-        options.dscwatchReceiverKey.trim() ||
-        loadOrCreateReceiverKey(path.join(app.getDataDirPath(), 'dscwatch-receiver-key'));
-      reporter = createReporter({
-        url: `${options.dscwatchUrl.replace(/\/+$/, '')}/${receiverKey}`,
-        userAgent: `signalk-dsc/${version}`,
-        queueFile: path.join(app.getDataDirPath(), 'dscwatch-queue.jsonl'),
-        log: (msg) => app.debug(msg),
-        onPermanentError: (status) =>
-          app.setPluginStatus(`DSCWatch: receiver key rejected (HTTP ${status}) — check configuration`),
-      });
-      reporter.start();
+      try {
+        const receiverKey =
+          options.dscwatchReceiverKey.trim() ||
+          loadOrCreateReceiverKey(path.join(app.getDataDirPath(), 'dscwatch-receiver-key'));
+        reporter = createReporter({
+          url: `${options.dscwatchUrl.replace(/\/+$/, '')}/${receiverKey}`,
+          userAgent: `signalk-dsc/${version}`,
+          queueFile: path.join(app.getDataDirPath(), 'dscwatch-queue.jsonl'),
+          log: (msg) => app.debug(msg),
+          onPermanentError: (status) =>
+            app.setPluginStatus(`DSCWatch: receiver key rejected (HTTP ${status}) — check configuration`),
+        });
+        reporter.start();
+      } catch (err) {
+        app.error(`signalk-dsc: DSCWatch reporting disabled: ${err.message}`);
+        reporter = null;
+      }
     }
 
     app.registerResourceProvider({

@@ -125,9 +125,9 @@ including your receiver's position, to help build coverage maps and distress log
 Each report contains only the call's parsed fields and raw sentence or PGN payload:
 `receivedAt`, `source`, `category`, `format`, `raw`, `mmsi`, `position`,
 `positionResolution`, `utcTime`, `natureOfDistress`, `distressedMmsi`,
-`workingChannel`, `acknowledgement`, and the boolean flags `relay`, `expansion`,
-`self`, `positionRefined` (only when `true`). The receiver's position at the moment
-the call arrived is added as `ownPosition` when the server has a fix.
+`workingChannel`, `acknowledgement`, `deviceBeacon`, and the boolean flags `relay`,
+`expansion`, `self`, `positionRefined` (only when `true`). The receiver's position
+at the moment the call arrived is added as `ownPosition` when the server has a fix.
 
 ### What never leaves the boat
 
@@ -144,9 +144,10 @@ and timing.
 
 Undelivered reports (connectivity loss, server restart during delivery) queue on disk
 at `dscwatch-queue.jsonl` in the plugin data directory and are retried when
-connectivity returns. A permanent rejection (HTTP 404 — receiver key unknown to the
-service) sets the plugin status and stops further submissions until the configuration
-is corrected.
+connectivity returns. An HTTP 404 response (receiver key unknown to the service, or a
+misconfigured `dscwatchUrl`) sets the plugin status once; subsequent reports are still
+attempted and dropped until the receiver key or endpoint URL is corrected — a fixed
+configuration heals automatically without a restart.
 
 ## Trying it without a radio
 
