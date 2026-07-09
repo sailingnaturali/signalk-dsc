@@ -4,6 +4,15 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7]
+
+### Documentation
+
+- README now points to the companion
+  [`@sailingnaturali/signalk-ais-distress`](https://github.com/sailingnaturali/signalk-ais-distress)
+  plugin (DSC alerts; AIS finds the casualty), making the cross-reference
+  reciprocal.
+
 ## [0.5.6]
 
 ### Fixed

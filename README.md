@@ -212,6 +212,15 @@ broadcasts on behalf of a real, licensed MMSI). Until such hardware is common
 this stays out of scope and the plugin remains a passive receiver. If you have a
 radio that exposes a transmit interface, open an issue.
 
+## See also
+
+DSC is the *alerting* signal — it tells you a vessel is in distress and roughly
+where. For *finding* the casualty, pair this with the companion
+[`@sailingnaturali/signalk-ais-distress`](https://github.com/sailingnaturali/signalk-ais-distress),
+which alarms on AIS survival beacons (SART / MOB / EPIRB) and gives you a
+position stream to home on. Both share the same 97x identity classes and build on
+[`@sailingnaturali/signalk-distress-core`](https://github.com/sailingnaturali/signalk-distress-core).
+
 ## License
 
 MIT
