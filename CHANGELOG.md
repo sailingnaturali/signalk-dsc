@@ -4,6 +4,22 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0]
+
+### Added
+
+- Opt-in DSCWatch.com reporting (`dscwatchEnabled`, default `false`): every received
+  call, repeat, and DSE position refinement is submitted to the DSCWatch crowdsourced
+  receiver network through a persistent write-through queue with offline catch-up.
+  Receiver identity is a persisted UUID (`dscwatch-receiver-key`) or a configured
+  station MMSI. Local-only fields (`ownShip` snapshots, spoken messages, event IDs)
+  are never sent.
+
+### Changed
+
+- `@sailingnaturali/signalk-distress-core` bumped to `^0.5.0` (adds `createReporter`
+  and `loadOrCreateReceiverKey` used by the DSCWatch integration).
+
 ## [0.5.7]
 
 ### Documentation

@@ -105,6 +105,49 @@ For every DSC call heard by a connected radio:
 | `logbookToken` | _empty_ | SignalK access token; logbook writes are skipped without one (plugin routes are auth-gated). |
 | `snapshotPaths` | `[]` | Extra `{ field, path }` pairs added to the `ownShip` snapshot on each stored call (position, course, heading, speed, wind, pressure, sea state, visibility and cloud coverage are always attempted). |
 
+## DSCWatch reporting
+
+DSCWatch ([dscwatch.com](https://dscwatch.com)) is a crowdsourced network that
+aggregates received DSC traffic from stations around the world. Participation is
+**opt-in and off by default** — enabling it sends each received call to the network,
+including your receiver's position, to help build coverage maps and distress logs.
+
+### Configuration
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `dscwatchEnabled` | `false` | Must be set to `true` to send any reports. No data leaves the boat until this is on. |
+| `dscwatchReceiverKey` | _empty_ | Leave blank to use an auto-generated UUID that persists in the plugin data directory (`dscwatch-receiver-key`). Enter your station's 9-digit MMSI if you want your reports attributed to a licensed station. |
+| `dscwatchUrl` | `https://dscwatch.com/api/v1/report` | Override for local testing only; the receiver key is appended automatically. |
+
+### What leaves the boat
+
+Each report contains only the call's parsed fields and raw sentence or PGN payload:
+`receivedAt`, `source`, `category`, `format`, `raw`, `mmsi`, `position`,
+`positionResolution`, `utcTime`, `natureOfDistress`, `distressedMmsi`,
+`workingChannel`, `acknowledgement`, and the boolean flags `relay`, `expansion`,
+`self`, `positionRefined` (only when `true`). The receiver's position at the moment
+the call arrived is added as `ownPosition` when the server has a fix.
+
+### What never leaves the boat
+
+The local-only fields — `ownShip` weather and sea-state snapshots, spoken message
+text, `repeats`, `lastReceivedAt`, `clearedAt`, and internal event IDs — are never
+sent.
+
+### Submission model
+
+Every radio reception — including DSC auto-repeats and every `$DSE` position
+refinement — is submitted as its own POST. The DSCWatch backend deduplicates repeated
+transmissions of the same call; sending each one lets the network track propagation
+and timing.
+
+Undelivered reports (connectivity loss, server restart during delivery) queue on disk
+at `dscwatch-queue.jsonl` in the plugin data directory and are retried when
+connectivity returns. A permanent rejection (HTTP 404 — receiver key unknown to the
+service) sets the plugin status and stops further submissions until the configuration
+is corrected.
+
 ## Trying it without a radio
 
 ### Quick test script
