@@ -13,7 +13,7 @@
  *   SIGNALK_TOKEN=... npm run clear-dsc -- --category distress
  *
  * Options:
- *   --host <host>      SignalK HTTP host (default: naturalaspi.local)
+ *   --host <host>      SignalK HTTP host (default: naturalaspi)
  *   --port <port>      SignalK HTTP port (default: 3000)
  *   --category <cat>   distress | urgency | safety | all (default: distress)
  *   --token <jwt>      Readwrite token (default: $SIGNALK_TOKEN)
@@ -30,7 +30,7 @@ const CATEGORIES = ['distress', 'urgency', 'safety'];
 
 function parseArgs(argv) {
   const args = {
-    host: 'naturalaspi.local',
+    host: 'naturalaspi',
     port: 3000,
     category: 'distress',
     token: process.env.SIGNALK_TOKEN || '',

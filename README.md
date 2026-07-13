@@ -168,7 +168,7 @@ Connections → Add):
 Then send a fake distress call:
 
 ```bash
-# Default: sinking, MMSI 366191919, near Boundary Pass → naturalaspi.local:7777
+# Default: sinking, MMSI 366191919, near Boundary Pass → naturalaspi:7777
 node scripts/send-test-dsc.js
 
 # npm alias

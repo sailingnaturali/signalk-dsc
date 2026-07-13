@@ -8,7 +8,7 @@
  *   node scripts/send-test-dsc.js [options]
  *
  * Options:
- *   --host <host>      UDP target host (default: naturalaspi.local)
+ *   --host <host>      UDP target host (default: naturalaspi)
  *   --port <port>      UDP target port (default: 7777)
  *   --nature <name>    Nature of distress: fire, flooding, collision, grounding,
  *                      listing, sinking, adrift, abandon, piracy, mob, epirb
@@ -55,7 +55,7 @@ const CATEGORY_CODES = {
 const TELECOMMAND_SHIP_POSITION = '21';
 
 function parseArgs(argv) {
-  const args = { host: 'naturalaspi.local', port: 7777, nature: 'sinking',
+  const args = { host: 'naturalaspi', port: 7777, nature: 'sinking',
                  mmsi: '366191919', lat: 48.75, lon: -123.25, category: 'distress' };
   for (let i = 2; i < argv.length; i += 2) {
     const flag = argv[i], val = argv[i + 1];
