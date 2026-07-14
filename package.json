@@ -1,6 +1,6 @@
 {
   "name": "@sailingnaturali/signalk-dsc",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Receive, log, and alert on DSC (VHF digital selective calling) calls — distress, urgency, safety, routine — from NMEA 0183 ($CDDSC/$CDDSE) and NMEA 2000 (PGN 129808).",
   "main": "index.js",
   "scripts": {
@@ -11,6 +11,7 @@
   "keywords": [
     "signalk-node-server-plugin",
     "signalk-category-utility",
+    "signalk-category-notifications",
     "dsc",
     "gmdss",
     "vhf",
@@ -28,7 +29,8 @@
     "url": "https://github.com/sailingnaturali/signalk-dsc/issues"
   },
   "signalk": {
-    "displayName": "DSC",
+    "displayName": "DSC — Digital Selective Calling",
+    "appIcon": "icon.svg",
     "recommends": [
       "@meri-imperiumi/signalk-logbook"
     ],
@@ -39,6 +41,7 @@
   },
   "files": [
     "index.js",
+    "icon.svg",
     "lib",
     "docs/screenshots/"
   ],

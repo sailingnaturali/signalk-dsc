@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="DSC handheld VHF radio, calling">
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#184870"/>
+      <stop offset="1" stop-color="#002448"/>
+    </linearGradient>
+    <clipPath id="r"><rect width="128" height="128" rx="22"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="128" height="128" fill="url(#card)"/>
+
+    <!-- transmit arcs off the antenna tip -->
+    <g fill="none" stroke="#88B868" stroke-linecap="round">
+      <path d="M80 36 a16 16 0 0 1 14 15" stroke-width="4.5"/>
+      <path d="M84 26 a28 28 0 0 1 22 24" stroke-width="4.5" stroke-opacity="0.55"/>
+    </g>
+
+    <!-- antenna -->
+    <line x1="58" y1="52" x2="74" y2="36" stroke="#C0D8E4" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="75" cy="35" r="4.5" fill="#88B868"/>
+
+    <!-- body -->
+    <rect x="40" y="50" width="34" height="58" rx="8" fill="#C0D8E4"/>
+    <!-- screen -->
+    <rect x="46" y="58" width="22" height="16" rx="2" fill="#184870"/>
+    <!-- keypad -->
+    <g fill="#5888A8">
+      <circle cx="51" cy="86" r="2.6"/><circle cx="57" cy="86" r="2.6"/><circle cx="63" cy="86" r="2.6"/>
+      <circle cx="51" cy="95" r="2.6"/><circle cx="57" cy="95" r="2.6"/><circle cx="63" cy="95" r="2.6"/>
+    </g>
+    <!-- PTT -->
+    <rect x="35" y="66" width="6" height="16" rx="2" fill="#006030"/>
+  </g>
+</svg>
