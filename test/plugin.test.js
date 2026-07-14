@@ -553,10 +553,10 @@ function dscwatchServer() {
   );
 }
 
-test('DSCWatch: disabled by default — no reports leave the boat', async () => {
+test('DSCWatch: when disabled, no reports leave the boat', async () => {
   const { server, requests, port } = await dscwatchServer();
   const app = mockApp();
-  const plugin = start(app, { dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report` });
+  const plugin = start(app, { dscwatchEnabled: false, dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report` });
   app.parsers.DSC(sentenceInput(DISTRESS));
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(requests.length, 0);

@@ -116,8 +116,8 @@ module.exports = function makePlugin(app) {
         type: 'boolean',
         title: 'Report received calls to DSCWatch.com',
         description:
-          'Opt-in: submit every received DSC call — including your receiver position — to the DSCWatch crowdsourced receiver network. Undelivered reports queue on disk and catch up when connectivity returns.',
-        default: false,
+          'On by default: submit every received DSC call — including your receiver position — to the DSCWatch crowdsourced receiver network. Undelivered reports queue on disk and catch up when connectivity returns. Set to false to keep all data on the boat.',
+        default: true,
       },
       dscwatchReceiverKey: {
         type: 'string',
@@ -381,7 +381,7 @@ module.exports = function makePlugin(app) {
       logbookRoutine: false,
       logbookUrl: 'http://localhost:3000/plugins/signalk-logbook/logs',
       logbookToken: '',
-      dscwatchEnabled: false,
+      dscwatchEnabled: true,
       dscwatchReceiverKey: '',
       dscwatchUrl: 'https://dscwatch.com/api/v1/report',
       ...opts,

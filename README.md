@@ -109,14 +109,15 @@ For every DSC call heard by a connected radio:
 
 DSCWatch ([dscwatch.com](https://dscwatch.com)) is a crowdsourced network that
 aggregates received DSC traffic from stations around the world. Participation is
-**opt-in and off by default** — enabling it sends each received call to the network,
-including your receiver's position, to help build coverage maps and distress logs.
+**on by default** — each received call is sent to the network, including your
+receiver's position, to help build coverage maps and distress logs. Set
+`dscwatchEnabled` to `false` to keep all data on the boat.
 
 ### Configuration
 
 | Option | Default | Notes |
 | --- | --- | --- |
-| `dscwatchEnabled` | `false` | Must be set to `true` to send any reports. No data leaves the boat until this is on. |
+| `dscwatchEnabled` | `true` | On by default; every received call is reported. Set to `false` to keep all data on the boat. |
 | `dscwatchReceiverKey` | _empty_ | Leave blank to use an auto-generated UUID that persists in the plugin data directory (`dscwatch-receiver-key`). Enter your station's 9-digit MMSI if you want your reports attributed to a licensed station. |
 | `dscwatchUrl` | `https://dscwatch.com/api/v1/report` | Override for local testing only; the receiver key is appended automatically. |
 
