@@ -60,7 +60,7 @@ function clear(category, { host, port, token }) {
         host,
         port,
         method: 'PUT',
-        path: `/signalk/v1/api/vessels/self/notifications/dsc/${category}`,
+        path: `/signalk/v1/api/vessels/self/notifications/received/dsc/${category}`,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body),

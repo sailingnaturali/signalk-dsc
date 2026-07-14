@@ -14,7 +14,7 @@
  *   - appends it to an on-disk JSONL log (forensics: raw input always kept)
  *   - serves the call history at /signalk/v2/api/resources/dsc-calls
  *     (anonymously readable under allow_readonly)
- *   - raises notifications.dsc.<category> under *self* — distress → emergency,
+ *   - raises notifications.received.dsc.<category> under *self* — distress → emergency,
  *     urgency → alarm, safety → alert — so the vessel's own alarm chain fires
  *   - optionally writes a GMDSS-style radio-log entry via signalk-logbook
  *
@@ -183,7 +183,7 @@ module.exports = function makePlugin(app) {
   const notifier = createNotifier({
     app,
     pluginId: plugin.id,
-    pathFor: (event) => `notifications.dsc.${event.category}`,
+    pathFor: (event) => `notifications.received.dsc.${event.category}`,
     stateFor: (event) => NOTIFICATION_STATES[event.category],
   });
 
@@ -203,7 +203,7 @@ module.exports = function makePlugin(app) {
   /** Clear an active DSC alarm: drop the live notification from our own source
    *  and stamp the stored events so the restart reannounce skips them. */
   function clearCategory(category) {
-    notifier.clear(`notifications.dsc.${category}`);
+    notifier.clear(`notifications.received.dsc.${category}`);
     store.markCleared((e) => e.category === category, new Date().toISOString());
   }
 
@@ -470,7 +470,7 @@ module.exports = function makePlugin(app) {
     // re-raise it. The readwrite device token authorizes this write.
     for (const category of Object.keys(NOTIFICATION_STATES)) {
       // Value ignored: any PUT to these paths means "clear" — no partial-update semantics.
-      app.registerPutHandler('vessels.self', `notifications.dsc.${category}`, () => {
+      app.registerPutHandler('vessels.self', `notifications.received.dsc.${category}`, () => {
         clearCategory(category);
         return { state: 'COMPLETED', statusCode: 200 };
       });

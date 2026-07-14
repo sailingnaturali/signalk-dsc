@@ -96,7 +96,7 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   // Self-context notification so the vessel's own alarm chain fires.
   assert.equal(app.deltas.length, 1);
   const notif = app.deltas[0].delta.updates[0].values[0];
-  assert.equal(notif.path, 'notifications.dsc.distress');
+  assert.equal(notif.path, 'notifications.received.dsc.distress');
   assert.equal(notif.value.state, 'emergency');
   assert.match(notif.value.message, /sinking/);
   // Spoken line: never an MMSI (TTS reads it as a huge number).
@@ -180,7 +180,7 @@ test('PGN 129808 urgency call is stored and raises an alarm-state notification',
   assert.equal(events.length, 1);
   assert.equal(events[0].source, 'n2k');
   const notif = app.deltas[0].delta.updates[0].values[0];
-  assert.equal(notif.path, 'notifications.dsc.urgency');
+  assert.equal(notif.path, 'notifications.received.dsc.urgency');
   assert.equal(notif.value.state, 'alarm');
   plugin.stop();
 });
@@ -274,7 +274,7 @@ test('a fresh distress alarm is re-raised after a restart', async () => {
   await new Promise((r) => setTimeout(r, 25));
   assert.equal(app.deltas.length, 2); // re-raised on start
   const notif = app.deltas[1].delta.updates[0].values[0];
-  assert.equal(notif.path, 'notifications.dsc.distress');
+  assert.equal(notif.path, 'notifications.received.dsc.distress');
   assert.equal(notif.value.state, 'emergency');
   plugin2.stop();
 });
@@ -439,7 +439,7 @@ test('start registers PUT clear handlers for the three notifying categories', ()
   const plugin = start(app);
   for (const cat of ['distress', 'urgency', 'safety']) {
     assert.ok(
-      app.putHandlers[`vessels.self:notifications.dsc.${cat}`],
+      app.putHandlers[`vessels.self:notifications.received.dsc.${cat}`],
       `missing PUT handler for ${cat}`
     );
   }
@@ -455,14 +455,14 @@ test('a PUT clears the live alarm and stamps clearedAt on stored events', async 
   assert.equal(app.deltas.length, 1);
 
   // Operator clears it.
-  const handler = app.putHandlers['vessels.self:notifications.dsc.distress'];
-  const result = handler('vessels.self', 'notifications.dsc.distress', null, () => {});
+  const handler = app.putHandlers['vessels.self:notifications.received.dsc.distress'];
+  const result = handler('vessels.self', 'notifications.received.dsc.distress', null, () => {});
   assert.equal(result.state, 'COMPLETED');
   assert.equal(result.statusCode, 200);
 
   // Live alarm cleared from the plugin's own source (null value).
   const clearDelta = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
-  assert.equal(clearDelta.path, 'notifications.dsc.distress');
+  assert.equal(clearDelta.path, 'notifications.received.dsc.distress');
   assert.equal(clearDelta.value, null);
 
   // Stored event stamped so a restart won't resurrect it.
@@ -479,8 +479,8 @@ test('after a clear: a re-transmit stays silent but a new vessel re-alarms', asy
   assert.equal(app.deltas.length, 1);
 
   // Operator clears it (emits the null-clear delta + stamps clearedAt).
-  app.putHandlers['vessels.self:notifications.dsc.distress'](
-    'vessels.self', 'notifications.dsc.distress', null, () => {}
+  app.putHandlers['vessels.self:notifications.received.dsc.distress'](
+    'vessels.self', 'notifications.received.dsc.distress', null, () => {}
   );
   const afterClear = app.deltas.length; // includes the clear delta
 
@@ -492,7 +492,7 @@ test('after a clear: a re-transmit stays silent but a new vessel re-alarms', asy
   app.parsers.DSC(sentenceInput('$CDDSC,12,3165557770,12,05,00,1423108312,2019,,,S,E*00'));
   const last = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
   assert.ok(app.deltas.length > afterClear, 'new vessel distress should re-alarm');
-  assert.equal(last.path, 'notifications.dsc.distress');
+  assert.equal(last.path, 'notifications.received.dsc.distress');
   assert.equal(last.value.state, 'emergency');
 
   plugin.stop();
