@@ -4,6 +4,16 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1]
+
+### Changed
+
+- DSCWatch reporting now defaults to **on** (`dscwatchEnabled: true`) — opt-out
+  instead of opt-in. A received DSC call carries nothing private, and the crowd
+  safety map is worth more coverage. Set `dscwatchEnabled: false` to keep all data
+  on the boat. Confirmed with DSCWatch that auto-generated UUID receiver keys are
+  accepted with no registration.
+
 ## [0.6.0]
 
 ### Added
