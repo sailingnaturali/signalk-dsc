@@ -14,8 +14,10 @@
  *   - appends it to an on-disk JSONL log (forensics: raw input always kept)
  *   - serves the call history at /signalk/v2/api/resources/dsc-calls
  *     (anonymously readable under allow_readonly)
- *   - raises notifications.received.dsc.<category> under *self* — distress → emergency,
- *     urgency → alarm, safety → alert — so the vessel's own alarm chain fires
+ *   - raises notifications.received.dsc.<category> under *self* — the ITU priority
+ *     categories map to spec zones distress → alarm, urgency → warn, safety → alert
+ *     (the source vessel's own record is raised at emergency; see dscParser) — so the
+ *     vessel's own alarm chain fires
  *   - optionally writes a GMDSS-style radio-log entry via signalk-logbook
  *
  * Distress alerts repeat every few minutes until acknowledged; repeats inside
@@ -45,7 +47,7 @@ const { buildReport } = require('./lib/dscwatch');
 const { version } = require('./package.json');
 
 const DSC_PGN = 129808;
-const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
+const NOTIFICATION_STATES = { distress: 'alarm', urgency: 'warn', safety: 'alert' };
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 const DSE_PAIR_WINDOW_MS = 2 * 60 * 1000;
 // Notifications are in-memory on the server: a restart silently drops an
@@ -312,14 +314,18 @@ module.exports = function makePlugin(app) {
           values.push({ path: 'navigation.position', value: parsed.position });
         }
         if (parsed.category === 'distress') {
-          values.push({
-            path: `notifications.${parsed.natureOfDistress}`,
-            value: {
-              state: 'emergency',
-              method: ['visual', 'sound'],
-              message: buildMessage(event, messageContext(event)),
-            },
-          });
+          const value = {
+            state: 'emergency',
+            method: ['visual', 'sound'],
+            message: buildMessage(event, messageContext(event)),
+          };
+          values.push({ path: `notifications.${parsed.natureOfDistress}`, value });
+          // Also feed the flat legacy self-key so existing MOB subscribers (e.g.
+          // meshtastic waypoint minting) keep firing until they migrate to the
+          // received.* / per-vessel scheme (SK spec thread 2026-07-15).
+          if (parsed.natureOfDistress === 'mob') {
+            app.handleMessage(plugin.id, { updates: [{ values: [{ path: 'notifications.mob', value }] }] });
+          }
         }
         if (values.length) {
           return {

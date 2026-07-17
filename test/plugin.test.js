@@ -11,6 +11,7 @@ const { EventEmitter } = require('node:events');
 const makePlugin = require('../index');
 
 const DISTRESS = '$CDDSC,12,3380400790,12,05,00,1423108312,2019,,,S,E*69';
+const MOB_DISTRESS = '$CDDSC,12,3380400790,12,10,00,1423108312,2019,,,S,E*6D';
 const DSE = '$CDDSE,1,1,A,3380400790,00,45894494*1B';
 
 function sentenceInput(sentence) {
@@ -97,7 +98,7 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   assert.equal(app.deltas.length, 1);
   const notif = app.deltas[0].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.received.dsc.distress');
-  assert.equal(notif.value.state, 'emergency');
+  assert.equal(notif.value.state, 'alarm');
   assert.match(notif.value.message, /sinking/);
   // Spoken line: never an MMSI (TTS reads it as a huge number).
   assert.doesNotMatch(notif.value.message, /338040079/);
@@ -109,6 +110,26 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   assert.equal(events[0].category, 'distress');
   assert.equal(events[0].source, 'nmea0183');
   assert.equal(events[0].raw, DISTRESS);
+  plugin.stop();
+});
+
+test('a MOB distress also feeds the flat legacy self notifications.mob', () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  const delta = app.parsers.DSC(sentenceInput(MOB_DISTRESS));
+
+  // Per-vessel record under the caller (SaR) context, at emergency.
+  assert.equal(delta.context, 'sar.urn:mrn:imo:mmsi:338040079');
+  const remote = delta.updates[0].values.find((v) => v.path === 'notifications.mob');
+  assert.equal(remote.value.state, 'emergency');
+
+  // Legacy flat self-key so existing MOB subscribers keep firing until they migrate.
+  const selfMob = app.deltas.find(
+    (d) => d.delta.updates[0].values[0].path === 'notifications.mob'
+  );
+  assert.ok(selfMob, 'self notifications.mob emitted');
+  assert.equal(selfMob.delta.updates[0].values[0].value.state, 'emergency');
   plugin.stop();
 });
 
@@ -160,7 +181,7 @@ test('repeated distress re-transmissions are deduped, not re-alarmed', async () 
   plugin.stop();
 });
 
-test('PGN 129808 urgency call is stored and raises an alarm-state notification', async () => {
+test('PGN 129808 urgency call is stored and raises a warn-state notification', async () => {
   const app = mockApp();
   const plugin = start(app);
 
@@ -181,7 +202,7 @@ test('PGN 129808 urgency call is stored and raises an alarm-state notification',
   assert.equal(events[0].source, 'n2k');
   const notif = app.deltas[0].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.received.dsc.urgency');
-  assert.equal(notif.value.state, 'alarm');
+  assert.equal(notif.value.state, 'warn');
   plugin.stop();
 });
 
@@ -275,7 +296,7 @@ test('a fresh distress alarm is re-raised after a restart', async () => {
   assert.equal(app.deltas.length, 2); // re-raised on start
   const notif = app.deltas[1].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.received.dsc.distress');
-  assert.equal(notif.value.state, 'emergency');
+  assert.equal(notif.value.state, 'alarm');
   plugin2.stop();
 });
 
@@ -493,7 +514,7 @@ test('after a clear: a re-transmit stays silent but a new vessel re-alarms', asy
   const last = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
   assert.ok(app.deltas.length > afterClear, 'new vessel distress should re-alarm');
   assert.equal(last.path, 'notifications.received.dsc.distress');
-  assert.equal(last.value.state, 'emergency');
+  assert.equal(last.value.state, 'alarm');
 
   plugin.stop();
 });

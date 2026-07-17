@@ -4,6 +4,22 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Received-call notification severities now follow the SignalK spec thread's ITU
+  priority → notification-zone mapping: **distress → `alarm`** (was `emergency`)
+  and **urgency → `warn`** (was `alarm`); safety stays `alert`. The source
+  vessel's own record under the `sar.`/`vessels.` context still raises at
+  `emergency`.
+
+### Added
+
+- A DSC distress with nature *man overboard* also raises the flat legacy
+  `notifications.mob` self-key (alongside the per-vessel record) so existing MOB
+  subscribers keep firing until they migrate to the `received.*` scheme.
+
 ## [0.6.1]
 
 ### Changed

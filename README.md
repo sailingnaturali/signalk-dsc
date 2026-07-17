@@ -46,9 +46,10 @@ For every DSC call heard by a connected radio:
 
   ![DSC distress markers in Freeboard-SK](docs/screenshots/freeboard-distress-markers.png)
 
-- **Alarms under your own vessel** — `notifications.dsc.distress` (state
-  `emergency`), `notifications.dsc.urgency` (`alarm`), `notifications.dsc.safety`
-  (`alert`). Routine calls never alarm. Repeated re-transmissions of the same
+- **Alarms under your own vessel** — the three ITU priority categories map to
+  SignalK notification zones: `notifications.dsc.distress` (state `alarm`),
+  `notifications.dsc.urgency` (`warn`), `notifications.dsc.safety` (`alert`).
+  Routine calls never alarm. Repeated re-transmissions of the same
   alert (DSC auto-repeats until acknowledged) update the stored call instead of
   re-alarming. Alerts received within the last hour are **re-raised after a
   server restart** — notifications are in-memory, and a received MAYDAY must
