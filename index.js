@@ -15,7 +15,7 @@
  *   - serves the call history at /signalk/v2/api/resources/dsc-calls
  *     (anonymously readable under allow_readonly)
  *   - raises a per-call notifications.received.<category>.dsc-<id> under *self* —
- *     distress → emergency, urgency → alarm, safety → alert — so the vessel's own
+ *     distress → emergency, urgency → alarm, safety → warn — so the vessel's own
  *     alarm chain fires (bulk clear-by-category via notifications.received.dsc.<category>)
  *   - optionally writes a GMDSS-style radio-log entry via signalk-logbook
  *
@@ -47,7 +47,7 @@ const { buildReport } = require('./lib/dscwatch');
 const { version } = require('./package.json');
 
 const DSC_PGN = 129808;
-const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'alert' };
+const NOTIFICATION_STATES = { distress: 'emergency', urgency: 'alarm', safety: 'warn' };
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 const DSE_PAIR_WINDOW_MS = 2 * 60 * 1000;
 // Notifications are in-memory on the server: a restart silently drops an

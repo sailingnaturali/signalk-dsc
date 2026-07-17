@@ -48,7 +48,7 @@ For every DSC call heard by a connected radio:
 
 - **Alarms under your own vessel** — each call raises a per-call
   `notifications.received.<category>.dsc-<id>` (distress → state `emergency`,
-  urgency → `alarm`, safety → `alert`), so two concurrent calls never overwrite
+  urgency → `alarm`, safety → `warn`), so two concurrent calls never overwrite
   one alarm. Routine calls never alarm. Repeated re-transmissions of the same
   alert (DSC auto-repeats until acknowledged) update the stored call instead of
   re-alarming. Alerts received within the last hour are **re-raised after a
