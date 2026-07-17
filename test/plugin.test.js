@@ -98,7 +98,7 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   assert.equal(app.deltas.length, 1);
   const notif = app.deltas[0].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.received.dsc.distress');
-  assert.equal(notif.value.state, 'alarm');
+  assert.equal(notif.value.state, 'emergency');
   assert.match(notif.value.message, /sinking/);
   // Spoken line: never an MMSI (TTS reads it as a huge number).
   assert.doesNotMatch(notif.value.message, /338040079/);
@@ -181,7 +181,7 @@ test('repeated distress re-transmissions are deduped, not re-alarmed', async () 
   plugin.stop();
 });
 
-test('PGN 129808 urgency call is stored and raises a warn-state notification', async () => {
+test('PGN 129808 urgency call is stored and raises an alarm-state notification', async () => {
   const app = mockApp();
   const plugin = start(app);
 
@@ -202,7 +202,7 @@ test('PGN 129808 urgency call is stored and raises a warn-state notification', a
   assert.equal(events[0].source, 'n2k');
   const notif = app.deltas[0].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.received.dsc.urgency');
-  assert.equal(notif.value.state, 'warn');
+  assert.equal(notif.value.state, 'alarm');
   plugin.stop();
 });
 
@@ -296,7 +296,7 @@ test('a fresh distress alarm is re-raised after a restart', async () => {
   assert.equal(app.deltas.length, 2); // re-raised on start
   const notif = app.deltas[1].delta.updates[0].values[0];
   assert.equal(notif.path, 'notifications.received.dsc.distress');
-  assert.equal(notif.value.state, 'alarm');
+  assert.equal(notif.value.state, 'emergency');
   plugin2.stop();
 });
 
@@ -514,7 +514,7 @@ test('after a clear: a re-transmit stays silent but a new vessel re-alarms', asy
   const last = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
   assert.ok(app.deltas.length > afterClear, 'new vessel distress should re-alarm');
   assert.equal(last.path, 'notifications.received.dsc.distress');
-  assert.equal(last.value.state, 'alarm');
+  assert.equal(last.value.state, 'emergency');
 
   plugin.stop();
 });

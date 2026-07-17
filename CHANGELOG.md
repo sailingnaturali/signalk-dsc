@@ -6,14 +6,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Received-call notification severities now follow the SignalK spec thread's ITU
-  priority → notification-zone mapping: **distress → `alarm`** (was `emergency`)
-  and **urgency → `warn`** (was `alarm`); safety stays `alert`. The source
-  vessel's own record under the `sar.`/`vessels.` context still raises at
-  `emergency`.
-
 ### Added
 
 - A DSC distress with nature *man overboard* also raises the flat legacy
