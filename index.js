@@ -14,8 +14,9 @@
  *   - appends it to an on-disk JSONL log (forensics: raw input always kept)
  *   - serves the call history at /signalk/v2/api/resources/dsc-calls
  *     (anonymously readable under allow_readonly)
- *   - raises notifications.received.dsc.<category> under *self* — distress → emergency,
- *     urgency → alarm, safety → alert — so the vessel's own alarm chain fires
+ *   - raises a per-call notifications.received.<category>.dsc-<id> under *self* —
+ *     distress → emergency, urgency → alarm, safety → alert — so the vessel's own
+ *     alarm chain fires (bulk clear-by-category via notifications.received.dsc.<category>)
  *   - optionally writes a GMDSS-style radio-log entry via signalk-logbook
  *
  * Distress alerts repeat every few minutes until acknowledged; repeats inside
@@ -35,6 +36,7 @@ const {
   captureOwnShip,
   buildObservations,
   createNotifier,
+  receivedPath,
   unwrap,
   writeLogbookEntry,
   createReporter,
@@ -183,8 +185,11 @@ module.exports = function makePlugin(app) {
   const notifier = createNotifier({
     app,
     pluginId: plugin.id,
-    pathFor: (event) => `notifications.received.dsc.${event.category}`,
+    pathFor: (event) => receivedPath(event.category, 'dsc', event.id),
     stateFor: (event) => NOTIFICATION_STATES[event.category],
+    // A consumer acking one alarm clears just that call: stamp it so the restart
+    // reannounce skips it (bulk clear-by-category still lives in clearCategory).
+    onCleared: (event) => store.markCleared((e) => e.id === event.id, new Date().toISOString()),
   });
 
   // Rebuild the spoken message against the current own-ship position — range
@@ -200,10 +205,17 @@ module.exports = function makePlugin(app) {
     notifier.raise(event);
   }
 
-  /** Clear an active DSC alarm: drop the live notification from our own source
-   *  and stamp the stored events so the restart reannounce skips them. */
+  /** Bulk-clear every active alarm of a category (the CLI / dashboard control
+   *  path `notifications.received.dsc.<category>`): drop each live per-call
+   *  notification and stamp the stored events so the restart reannounce skips
+   *  them. (An individual alarm is acked at its own per-call path — see the
+   *  notifier's onCleared.) */
   function clearCategory(category) {
-    notifier.clear(`notifications.received.dsc.${category}`);
+    for (const e of store.list()) {
+      if (e.category === category && !e.clearedAt) {
+        notifier.clear(receivedPath(e.category, 'dsc', e.id));
+      }
+    }
     store.markCleared((e) => e.category === category, new Date().toISOString());
   }
 

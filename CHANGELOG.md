@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Received-call alarms now use a per-call key `notifications.received.<category>.dsc-<id>`
+  (was one fixed path per category), so two concurrent calls no longer overwrite one
+  alarm. Acknowledge an individual alarm by PUTting its own path; the CLI's
+  `--category` bulk-clear still clears every active call of a category. Requires the
+  `receivedPath` export from `@sailingnaturali/signalk-distress-core`.
+
 ### Added
 
 - A DSC distress with nature *man overboard* also raises the flat legacy

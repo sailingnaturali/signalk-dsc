@@ -46,9 +46,10 @@ For every DSC call heard by a connected radio:
 
   ![DSC distress markers in Freeboard-SK](docs/screenshots/freeboard-distress-markers.png)
 
-- **Alarms under your own vessel** — `notifications.dsc.distress` (state
-  `emergency`), `notifications.dsc.urgency` (`alarm`), `notifications.dsc.safety`
-  (`alert`). Routine calls never alarm. Repeated re-transmissions of the same
+- **Alarms under your own vessel** — each call raises a per-call
+  `notifications.received.<category>.dsc-<id>` (distress → state `emergency`,
+  urgency → `alarm`, safety → `alert`), so two concurrent calls never overwrite
+  one alarm. Routine calls never alarm. Repeated re-transmissions of the same
   alert (DSC auto-repeats until acknowledged) update the stored call instead of
   re-alarming. Alerts received within the last hour are **re-raised after a
   server restart** — notifications are in-memory, and a received MAYDAY must
@@ -207,9 +208,11 @@ $CDDSE,1,1,A,3380400790,00,45894494*1B
 
 ### Clearing an alarm
 
-A received distress/urgency/safety call raises `notifications.dsc.<category>` and is
-re-raised for up to an hour across server restarts. To clear an active alarm — dropping
-the live notification and stopping the restart re-raise:
+Each call raises a per-call `notifications.received.<category>.dsc-<id>`, re-raised for up
+to an hour across server restarts. Acknowledge one alarm by PUTting its own path — what a
+chartplotter does when you clear the alarm it is showing. To bulk-clear every active call
+of a category from the CLI — dropping the live notifications and stopping the restart
+re-raise:
 
 ```bash
 SIGNALK_TOKEN=<readwrite-token> npm run clear-dsc -- --category distress
@@ -217,7 +220,7 @@ SIGNALK_TOKEN=<readwrite-token> npm run clear-dsc -- --category distress
 
 `--category all` clears all three. Clearing is a write, so it needs a readwrite token
 (the same one used to fire a test MOB). A new incoming call still alarms normally.
-This clears the `self`-context alarm; the transient per-caller notification raised under
+This clears the `self`-context alarms; the transient per-caller notification raised under
 the sender's vessel context is not persisted or re-raised, so it is left untouched.
 
 ## Limitations

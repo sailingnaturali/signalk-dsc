@@ -97,7 +97,7 @@ test('a distress alert is stored, alarmed under self, and visible as a resource'
   // Self-context notification so the vessel's own alarm chain fires.
   assert.equal(app.deltas.length, 1);
   const notif = app.deltas[0].delta.updates[0].values[0];
-  assert.equal(notif.path, 'notifications.received.dsc.distress');
+  assert.match(notif.path, /^notifications\.received\.distress\.dsc-/);
   assert.equal(notif.value.state, 'emergency');
   assert.match(notif.value.message, /sinking/);
   // Spoken line: never an MMSI (TTS reads it as a huge number).
@@ -201,7 +201,7 @@ test('PGN 129808 urgency call is stored and raises an alarm-state notification',
   assert.equal(events.length, 1);
   assert.equal(events[0].source, 'n2k');
   const notif = app.deltas[0].delta.updates[0].values[0];
-  assert.equal(notif.path, 'notifications.received.dsc.urgency');
+  assert.match(notif.path, /^notifications\.received\.urgency\.dsc-/);
   assert.equal(notif.value.state, 'alarm');
   plugin.stop();
 });
@@ -295,7 +295,7 @@ test('a fresh distress alarm is re-raised after a restart', async () => {
   await new Promise((r) => setTimeout(r, 25));
   assert.equal(app.deltas.length, 2); // re-raised on start
   const notif = app.deltas[1].delta.updates[0].values[0];
-  assert.equal(notif.path, 'notifications.received.dsc.distress');
+  assert.match(notif.path, /^notifications\.received\.distress\.dsc-/);
   assert.equal(notif.value.state, 'emergency');
   plugin2.stop();
 });
@@ -467,6 +467,28 @@ test('start registers PUT clear handlers for the three notifying categories', ()
   plugin.stop();
 });
 
+test('two concurrent distress calls get distinct keys, each acked independently', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  app.parsers.DSC(sentenceInput(DISTRESS)); // mmsi 338040079
+  app.parsers.DSC(sentenceInput('$CDDSC,12,3165557770,12,05,00,1423108312,2019,,,S,E*00')); // mmsi 316555777
+
+  const paths = app.deltas.map((d) => d.delta.updates[0].values[0].path);
+  const a = paths.find((p) => p.includes('338040079'));
+  const b = paths.find((p) => p.includes('316555777'));
+  assert.ok(a && b && a !== b, 'each call raised at its own per-call path');
+
+  // Ack only the first via its own PUT handler — the second stays active.
+  app.putHandlers[`vessels.self:${a}`]();
+  const events = Object.values(await app.resourceProviders['dsc-calls'].methods.listResources());
+  const first = events.find((e) => e.mmsi === '338040079');
+  const second = events.find((e) => e.mmsi === '316555777');
+  assert.ok(first.clearedAt, 'acked call stamped cleared');
+  assert.equal(second.clearedAt, undefined, 'other call still active');
+  plugin.stop();
+});
+
 test('a PUT clears the live alarm and stamps clearedAt on stored events', async () => {
   const app = mockApp();
   const plugin = start(app);
@@ -483,7 +505,7 @@ test('a PUT clears the live alarm and stamps clearedAt on stored events', async 
 
   // Live alarm cleared from the plugin's own source (null value).
   const clearDelta = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
-  assert.equal(clearDelta.path, 'notifications.received.dsc.distress');
+  assert.match(clearDelta.path, /^notifications\.received\.distress\.dsc-/);
   assert.equal(clearDelta.value, null);
 
   // Stored event stamped so a restart won't resurrect it.
@@ -513,7 +535,7 @@ test('after a clear: a re-transmit stays silent but a new vessel re-alarms', asy
   app.parsers.DSC(sentenceInput('$CDDSC,12,3165557770,12,05,00,1423108312,2019,,,S,E*00'));
   const last = app.deltas[app.deltas.length - 1].delta.updates[0].values[0];
   assert.ok(app.deltas.length > afterClear, 'new vessel distress should re-alarm');
-  assert.equal(last.path, 'notifications.received.dsc.distress');
+  assert.match(last.path, /^notifications\.received\.distress\.dsc-/);
   assert.equal(last.value.state, 'emergency');
 
   plugin.stop();
