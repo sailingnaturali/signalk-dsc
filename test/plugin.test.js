@@ -607,9 +607,9 @@ test('DSCWatch: when disabled, no reports leave the boat', async () => {
   plugin.stop();
 });
 
-test('DSCWatch: a distress alert is reported with a persisted UUID receiver key', async () => {
+test('DSCWatch: a distress alert auto-keys off the vessel MMSI when no key is configured', async () => {
   const { server, until, port } = await dscwatchServer();
-  const app = mockApp();
+  const app = mockApp(); // default self MMSI 368000001, no explicit dscwatchReceiverKey
   const plugin = start(app, {
     dscwatchEnabled: true,
     dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
@@ -618,10 +618,10 @@ test('DSCWatch: a distress alert is reported with a persisted UUID receiver key'
 
   const [req] = await until(1);
   const key = req.url.split('/').pop();
-  assert.match(key, /^[0-9a-f-]{36}$/);
+  assert.equal(key, '368000001'); // the vessel's own MMSI — stable, real attribution
   assert.equal(
     fs.readFileSync(path.join(app.dataDir, 'dscwatch-receiver-key'), 'utf8').trim(),
-    key
+    key // choice locked in, so a later MMSI change never re-keys the station
   );
   assert.match(req.headers['user-agent'], /^signalk-dsc\//);
   assert.equal(req.body.category, 'distress');
@@ -631,6 +631,27 @@ test('DSCWatch: a distress alert is reported with a persisted UUID receiver key'
   // Local-only fields never leave the boat.
   assert.equal('message' in req.body, false);
   assert.equal('ownShip' in req.body, false);
+  server.close();
+  plugin.stop();
+});
+
+test('DSCWatch: with no vessel MMSI, a UUID receiver key is minted and persisted', async () => {
+  const { server, until, port } = await dscwatchServer();
+  const app = mockApp();
+  app.getSelfPath = (p) => undefined; // vessel has no MMSI configured
+  const plugin = start(app, {
+    dscwatchEnabled: true,
+    dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report`,
+  });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  const [req] = await until(1);
+  const key = req.url.split('/').pop();
+  assert.match(key, /^[0-9a-f-]{36}$/); // falls back to a minted UUID
+  assert.equal(
+    fs.readFileSync(path.join(app.dataDir, 'dscwatch-receiver-key'), 'utf8').trim(),
+    key
+  );
   server.close();
   plugin.stop();
 });
@@ -698,11 +719,46 @@ test('DSCWatch: an unwritable data dir disables reporting but never blocks plugi
   app.getDataDirPath = () => path.join(blocker, 'sub'); // fs ops here throw ENOTDIR
   const errors = [];
   app.error = (m) => errors.push(m);
-  const plugin = start(app, { dscwatchEnabled: true });
+  // Loopback URL so this exercises the unwritable-dir path even under the CI guard.
+  const plugin = start(app, { dscwatchEnabled: true, dscwatchUrl: 'http://127.0.0.1:1/api/v1/report' });
   assert.ok(app.parsers.DSC, 'parsers must still register');
   assert.ok(app.resourceProviders['dsc-calls'], 'resource provider must still register');
   assert.ok(errors.some((m) => /DSCWatch reporting disabled/.test(m)));
   plugin.stop();
+});
+
+test('DSCWatch: under CI, no reports leave for a non-loopback endpoint', () => {
+  const prev = process.env.CI;
+  process.env.CI = 'true';
+  try {
+    const app = mockApp();
+    // RFC5737 TEST-NET-1: non-routable, so even a broken guard can't hit a real host.
+    const plugin = start(app, { dscwatchEnabled: true, dscwatchUrl: 'http://192.0.2.1/api/v1/report' });
+    app.parsers.DSC(sentenceInput(DISTRESS));
+    // Reporting is suppressed, so the receiver-key file is never even created.
+    assert.equal(fs.existsSync(path.join(app.dataDir, 'dscwatch-receiver-key')), false);
+    assert.ok(app.parsers.DSC, 'plugin still starts');
+    plugin.stop();
+  } finally {
+    if (prev === undefined) delete process.env.CI; else process.env.CI = prev;
+  }
+});
+
+test('DSCWatch: under CI, a loopback capture server still receives (tests keep working)', async () => {
+  const prev = process.env.CI;
+  process.env.CI = 'true';
+  try {
+    const { server, until, port } = await dscwatchServer();
+    const app = mockApp();
+    const plugin = start(app, { dscwatchEnabled: true, dscwatchUrl: `http://127.0.0.1:${port}/api/v1/report` });
+    app.parsers.DSC(sentenceInput(DISTRESS));
+    const [req] = await until(1);
+    assert.equal(req.body.category, 'distress');
+    server.close();
+    plugin.stop();
+  } finally {
+    if (prev === undefined) delete process.env.CI; else process.env.CI = prev;
+  }
 });
 
 test('DSCWatch: ownPosition rides along when the receiver has a fix; self flag on own calls', async () => {

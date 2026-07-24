@@ -408,11 +408,18 @@ module.exports = function makePlugin(app) {
       maxEvents: options.maxEvents,
     });
 
-    if (options.dscwatchEnabled) {
+    // Never phone home from CI: GitHub Actions (Azure) pulls this plugin hundreds
+    // of times a day and would flood DSCWatch with throwaway-key reports. Loopback
+    // targets (the tests' local capture server) stay allowed so CI can still run.
+    const ciBlocked = process.env.CI &&
+      !/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(options.dscwatchUrl);
+    if (options.dscwatchEnabled && !ciBlocked) {
       try {
         const receiverKey =
           options.dscwatchReceiverKey.trim() ||
-          loadOrCreateReceiverKey(path.join(app.getDataDirPath(), 'dscwatch-receiver-key'));
+          loadOrCreateReceiverKey(
+            path.join(app.getDataDirPath(), 'dscwatch-receiver-key'),
+            selfMmsi()); // fresh installs key off the vessel MMSI (stable, DSCWatch-preferred)
         reporter = createReporter({
           url: `${options.dscwatchUrl.replace(/\/+$/, '')}/${receiverKey}`,
           userAgent: `signalk-dsc/${version}`,

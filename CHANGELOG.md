@@ -4,6 +4,24 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0]
+
+### Changed
+
+- DSCWatch reporting now auto-uses the vessel's own MMSI as the receiver key when
+  one is configured and no `dscwatchReceiverKey` is set, falling back to a
+  persisted UUID otherwise (via `@sailingnaturali/signalk-distress-core` 0.8.0).
+  Most boats now report under their MMSI with no configuration — real attribution,
+  and no per-restart UUID churn. Existing installs keep whatever key they already
+  persisted; nothing is re-keyed.
+
+### Fixed
+
+- Never phone home to a non-loopback DSCWatch endpoint when `process.env.CI` is
+  set. GitHub Actions (Azure) pulls the plugin hundreds of times a day; each
+  ephemeral run was registering a throwaway receiver key on the live service. The
+  tests' local capture server (loopback) still receives, so CI keeps working.
+
 ## [0.9.0]
 
 ### Changed
