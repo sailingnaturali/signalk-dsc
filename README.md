@@ -25,6 +25,17 @@ up in more detail [on the engineering blog][writeup].
 
 [writeup]: https://engineering.sailingnaturali.com/signalk-dsc-distress-call-logging-nmea0183-dse-pgn-129808/
 
+> [!WARNING]
+> **Never press your radio's distress button to test this plugin — or anything else.**
+> That transmits a real DSC distress alert on Ch 70 to the Coast Guard and every
+> station in range. It is not a test signal, there is no test mode on the radio, and
+> a false alert carries real regulatory consequences.
+>
+> You never have to. See **[Testing it — without transmitting](#testing-it--without-transmitting)**:
+> a script fires a synthetic distress call at your server over UDP, and
+> `npm run clear-dsc` tears the alarm back down. That exercises the whole
+> chain — parse, store, marker, alarm, logbook — with nothing on the air.
+
 ## What you get
 
 For every DSC call heard by a connected radio:
@@ -151,7 +162,18 @@ misconfigured `dscwatchUrl`) sets the plugin status once; subsequent reports are
 attempted and dropped until the receiver key or endpoint URL is corrected — a fixed
 configuration heals automatically without a restart.
 
-## Trying it without a radio
+## Testing it — without transmitting
+
+You can verify the entire receive chain — parse, store, chart marker, alarm,
+logbook entry, and clearing — without a radio, without an antenna, and without
+putting a single carrier on the air.
+
+**Do not use your radio's distress button to do it.** Pressing that button sends a
+genuine distress alert to the Coast Guard and every DSC station in range; it is a
+live transmission, not a self-test, and a false alert is a reportable event that can
+carry fines. If you need to confirm this plugin consumes your gear correctly, settle
+it by reading the docs or the source — the parser is in [`lib/dsc.js`](lib/dsc.js)
+and [`lib/pgn129808.js`](lib/pgn129808.js) — and by injecting a synthetic call below.
 
 ### Quick test script
 
