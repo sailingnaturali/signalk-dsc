@@ -41,6 +41,8 @@
  * match-bearing variant plus a non-match sibling carrying a real field at the
  * match position), which is why it has gone unnoticed.
  *
+ * Filed upstream: https://github.com/canboat/canboatjs/issues/460
+ *
  * WHEN THIS TEST FAILS: upstream has probably been fixed. That is good news —
  * update the fixtures (see scripts/capture-129808.js) and flip the urgency and
  * safety expectations from silent to alarming. No plugin change should be
