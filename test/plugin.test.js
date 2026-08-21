@@ -181,6 +181,11 @@ test('repeated distress re-transmissions are deduped, not re-alarmed', async () 
   plugin.stop();
 });
 
+// HYPOTHETICAL INPUT — canboatjs does not currently emit `dscCategory` on a
+// non-distress call, so this shape never reaches the plugin in production. It
+// covers our category→severity mapping for when upstream is fixed; it is NOT
+// evidence that urgency alarms over N2K today. For what really arrives (and why
+// urgency and safety are silent), see test/pgn129808-canboat.test.js.
 test('PGN 129808 urgency call is stored and raises an alarm-state notification', async () => {
   const app = mockApp();
   const plugin = start(app);
