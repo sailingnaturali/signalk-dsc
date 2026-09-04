@@ -4,6 +4,43 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0]
+
+### Fixed
+
+- The NMEA 2000 MMSI is no longer dropped on every call. PGN 129808's
+  `DSC Message Address` is a 40-bit BCD `DECIMAL` — ten digits, the 9-digit MMSI
+  plus a trailing pad — and the normalizer accepted at most nine, so `event.mmsi`
+  was `undefined` for all real N2K traffic. With it went the `self` flag, the
+  EPIRB/PLB/MOB beacon lookup, and the identity half of duplicate detection: two
+  calls from *different* stations sharing a category and nature collapsed into one.
+  The `$CDDSC` path has stripped the pad since the beginning; both transports now
+  agree. Found by @fakehec's real gateway captures on #8, who had hit the same bug
+  independently in July and patched it locally.
+
+- An unset `MMSI of ship in distress` no longer invents a casualty. The field is a
+  40-bit BCD like the address, but an unavailable one reaches us as `4294967295`
+  (0xFFFFFFFF), and stripping its pad digit yielded `429496729` — a well-formed
+  MMSI for a vessel that does not exist. A real DSC address always ends in the pad
+  zero; ten-digit values that don't are now rejected.
+
+- The casualty MMSI is only read on distress calls over NMEA 2000. Routine traffic
+  leaves the field holding whatever was last in it — real captures show it echoing
+  the addressee on a position-registration update — so it was attaching a casualty
+  to calls that have none, and reporting that casualty onward to DSCWatch. The
+  `$CDDSC` path has always gated this on the category; both transports now agree.
+
+### Changed
+
+- The NMEA 2000 path is now tested against real captured frames
+  (`test/pgn129808-canboat.test.js`) rather than hand-written fixtures, in both
+  decoder shapes: what `@canboat/canboatjs@3.20.0` emits today, where the call
+  category is decoded and then dropped (canboat/canboatjs#460), and what a build
+  carrying canboat/canboatjs#461 emits, where it survives. Until that lands
+  upstream, urgency and safety calls still arrive over N2K as `unknown` and do not
+  raise a notification — unchanged in this release, and now pinned by tests that
+  say so out loud.
+
 ## [0.10.0]
 
 ### Changed
