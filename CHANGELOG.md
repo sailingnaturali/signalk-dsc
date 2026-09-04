@@ -18,6 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agree. Found by @fakehec's real gateway captures on #8, who had hit the same bug
   independently in July and patched it locally.
 
+- An unset `MMSI of ship in distress` no longer invents a casualty. The field is a
+  40-bit BCD like the address, but an unavailable one reaches us as `4294967295`
+  (0xFFFFFFFF), and stripping its pad digit yielded `429496729` — a well-formed
+  MMSI for a vessel that does not exist. A real DSC address always ends in the pad
+  zero; ten-digit values that don't are now rejected.
+
+- The casualty MMSI is only read on distress calls over NMEA 2000. Routine traffic
+  leaves the field holding whatever was last in it — real captures show it echoing
+  the addressee on a position-registration update — so it was attaching a casualty
+  to calls that have none, and reporting that casualty onward to DSCWatch. The
+  `$CDDSC` path has always gated this on the category; both transports now agree.
+
 ### Changed
 
 - The NMEA 2000 path is now tested against real captured frames
