@@ -4,6 +4,31 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0]
+
+### Fixed
+
+- The NMEA 2000 MMSI is no longer dropped on every call. PGN 129808's
+  `DSC Message Address` is a 40-bit BCD `DECIMAL` — ten digits, the 9-digit MMSI
+  plus a trailing pad — and the normalizer accepted at most nine, so `event.mmsi`
+  was `undefined` for all real N2K traffic. With it went the `self` flag, the
+  EPIRB/PLB/MOB beacon lookup, and the identity half of duplicate detection: two
+  calls from *different* stations sharing a category and nature collapsed into one.
+  The `$CDDSC` path has stripped the pad since the beginning; both transports now
+  agree. Found by @fakehec's real gateway captures on #8, who had hit the same bug
+  independently in July and patched it locally.
+
+### Changed
+
+- The NMEA 2000 path is now tested against real captured frames
+  (`test/pgn129808-canboat.test.js`) rather than hand-written fixtures, in both
+  decoder shapes: what `@canboat/canboatjs@3.20.0` emits today, where the call
+  category is decoded and then dropped (canboat/canboatjs#460), and what a build
+  carrying canboat/canboatjs#461 emits, where it survives. Until that lands
+  upstream, urgency and safety calls still arrive over N2K as `unknown` and do not
+  raise a notification — unchanged in this release, and now pinned by tests that
+  say so out loud.
+
 ## [0.10.0]
 
 ### Changed
