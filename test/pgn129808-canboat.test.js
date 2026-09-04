@@ -77,6 +77,50 @@ const PATCHED_URGENCY = [
   },
 ];
 
+// Individual-station calls from the same capture, posted on #10. These are the
+// only real examples we have of the address field carrying an *addressee*
+// rather than an originator. @fakehec masked the third-party addressee; every
+// other field is untouched.
+const INDIVIDUAL = {
+  // Addressed to the coast station. Note `mmsiOfShipInDistress` echoing the
+  // address on a call that is not a distress call at all.
+  toCoastStation: {
+    dscFormat: 'Individual stations',
+    dscMessageAddress: 2241024,
+    subsequentCommunicationModeOr2ndTelecommand: 'No information',
+    mmsiOfShipInDistress: 2241024,
+    expansionEnabled: 'No',
+    dscEquipmentAssignedMessageId: 1,
+  },
+  // Addressed to a third party — not us, so the addressee reading shows without
+  // the self-poll coincidence. `mmsiOfShipInDistress` is 0xFFFFFFFF, the N2K
+  // "unavailable" sentinel.
+  toThirdParty: {
+    dscFormat: 'Individual stations',
+    dscMessageAddress: 'MASKED-THIRD-PARTY',
+    '1stTelecommand': 'Ship position or location registration updating',
+    latitudeOfVesselReported: 38.9824216,
+    longitudeOfVesselReported: 1.53956,
+    timeOfPosition: '18:12:00',
+    mmsiOfShipInDistress: 4294967295,
+    dscEosSymbol: 122,
+    expansionEnabled: 'No',
+    dscEquipmentAssignedMessageId: 0,
+  },
+  // The reporting vessel's own fixed radio, position-registering to itself.
+  toSelf: {
+    dscFormat: 'Individual stations',
+    dscMessageAddress: '2245392400',
+    '1stTelecommand': 'Ship position or location registration updating',
+    latitudeOfVesselReported: 38.9824366,
+    longitudeOfVesselReported: 1.5394983,
+    timeOfPosition: '18:40:00',
+    dscEosSymbol: 122,
+    expansionEnabled: 'No',
+    dscEquipmentAssignedMessageId: 0,
+  },
+};
+
 /** The same frame as stock canboatjs 3.20.0 delivers it: category dropped. */
 function asStock(fields) {
   const stock = { ...fields };
@@ -175,6 +219,57 @@ test('on stock canboatjs the category is dropped, so the call lands unknown and 
   // whole cost of canboat/canboatjs#460: a SÉCURITÉ arrives, is logged, and
   // never reaches the crew.
   assert.equal(app.deltas.length, 0);
+  plugin.stop();
+});
+
+// Both DSC MMSI fields are 40-bit BCD, so both get the pad stripped — but an
+// unset one arrives as 0xFFFFFFFF, and 4294967295 is ten digits. Stripping the
+// last digit of a sentinel mints 429496729: a syntactically perfect MMSI for a
+// vessel that does not exist. On a distress call that is a casualty identity
+// invented out of an empty field. Real DSC addresses always end in the pad.
+test('the 0xFFFFFFFF unavailable sentinel is not mistaken for an MMSI', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  receive(app, INDIVIDUAL.toThirdParty);
+
+  const events = await stored(app);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].distressedMmsi, undefined);
+  plugin.stop();
+});
+
+// Routine traffic leaves `mmsiOfShipInDistress` holding whatever was last in
+// it — here, the addressee of a position-registration update. The $CDDSC path
+// has always read it only on distress calls; the N2K path used to read it
+// always, attaching a casualty to calls that have none and reporting that
+// casualty onward to DSCWatch.
+test('a casualty MMSI on a non-distress call is ignored', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  receive(app, INDIVIDUAL.toCoastStation);
+
+  const events = await stored(app);
+  assert.equal(events[0].category, 'unknown');
+  assert.equal(events[0].mmsi, '002241024'); // numeric form, pad already gone
+  assert.equal(events[0].distressedMmsi, undefined);
+  plugin.stop();
+});
+
+// #10: the address field is the addressee here, not the caller. Recorded as
+// today's behaviour so whichever fix that issue takes has a starting point —
+// this call is *from* someone else *to* our own radio, and `mmsi` holds us.
+test('an individual call addressed to own MMSI is flagged self', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+  app.getSelfPath = (p) => (p === 'mmsi' ? '224539240' : undefined);
+
+  receive(app, INDIVIDUAL.toSelf);
+
+  const events = await stored(app);
+  assert.equal(events[0].mmsi, '224539240');
+  assert.equal(events[0].self, true);
   plugin.stop();
 });
 
