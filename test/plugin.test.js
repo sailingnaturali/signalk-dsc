@@ -3,12 +3,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const { EventEmitter } = require('node:events');
 
 const makePlugin = require('../index');
+const { mockApp, start } = require('./helpers');
 
 const DISTRESS = '$CDDSC,12,3380400790,12,05,00,1423108312,2019,,,S,E*69';
 const MOB_DISTRESS = '$CDDSC,12,3380400790,12,10,00,1423108312,2019,,,S,E*6D';
@@ -23,31 +22,6 @@ function sentenceInput(sentence) {
     // events fresher than its window.
     tags: { source: 'test.0', timestamp: new Date().toISOString() },
   };
-}
-
-function mockApp() {
-  const app = new EventEmitter();
-  app.dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsc-plugin-'));
-  app.getDataDirPath = () => app.dataDir;
-  app.getSelfPath = (p) => (p === 'mmsi' ? '368000001' : undefined);
-  app.deltas = [];
-  app.handleMessage = (id, delta) => app.deltas.push({ id, delta });
-  app.parsers = {};
-  app.emitPropertyValue = (name, value) => {
-    if (name === 'nmea0183sentenceParser') app.parsers[value.sentence] = value.parser;
-  };
-  app.resourceProviders = {};
-  app.registerResourceProvider = (provider) => {
-    app.resourceProviders[provider.type] = provider;
-  };
-  app.error = () => {};
-  app.debug = () => {};
-  app.setPluginStatus = () => {};
-  app.putHandlers = {};
-  app.registerPutHandler = (context, path, cb) => {
-    app.putHandlers[`${context}:${path}`] = cb;
-  };
-  return app;
 }
 
 // Tiny logbook stand-in: resolves `received` with the captured request.
@@ -65,12 +39,6 @@ function logbookServer() {
   return new Promise((r) =>
     server.listen(0, '127.0.0.1', () => r({ server, received, port: server.address().port }))
   );
-}
-
-function start(app, options = {}) {
-  const plugin = makePlugin(app);
-  plugin.start({ logbookToken: '', ...options });
-  return plugin;
 }
 
 test('start registers DSC + DSE parsers and the dsc-calls resource provider', () => {
@@ -181,6 +149,13 @@ test('repeated distress re-transmissions are deduped, not re-alarmed', async () 
   plugin.stop();
 });
 
+// Kept for the mapping it checks (urgency → alarm), but note the premise: no
+// canboatjs release has ever emitted `dscCategory` on a non-distress call, so
+// this exact field shape cannot arrive off a wire. It passed green throughout
+// the period urgency was silent in production (canboat/canboatjs#460). The
+// same consequence is asserted against real captured frames in
+// test/pgn129808-canboat.test.js; that file is the one to trust about the N2K
+// path, this one about the mapping.
 test('PGN 129808 urgency call is stored and raises an alarm-state notification', async () => {
   const app = mockApp();
   const plugin = start(app);
