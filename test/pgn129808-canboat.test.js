@@ -252,7 +252,11 @@ test('a casualty MMSI on a non-distress call is ignored', async () => {
 
   const events = await stored(app);
   assert.equal(events[0].category, 'unknown');
-  assert.equal(events[0].mmsi, '002241024'); // numeric form, pad already gone
+  // Transcribed as a bare number on the issue, and a number is not something
+  // the decoder can hand over: the address is a 40-bit BCD DECIMAL, so it
+  // arrives either as the padded digit string or as the mangled integer that
+  // WIRE_URGENCY below carries. Neither is a usable MMSI as a number.
+  assert.equal(events[0].mmsi, undefined);
   assert.equal(events[0].distressedMmsi, undefined);
   plugin.stop();
 });
@@ -300,4 +304,41 @@ test('on stock canboatjs, differing categories from one station collapse into on
 
   plugin.stop();
   plugin2.stop();
+});
+
+// The address as canboatjs 3.20.0 actually hands it over, decoded here from
+// the raw YDRAW frames in canboat/canboatjs#460 rather than transcribed from
+// a decode elsewhere. `DSC Message Address` is a 40-bit DECIMAL and canboatjs
+// has no DECIMAL case: `readValue` falls through to `readBits(40)`, whose
+// 32-bit shifts drop the leading digit pair and fold the trailing one back
+// over it. The Spanish coast station 002241024 — wire bytes 00 16 29 02 28,
+// i.e. the padded digits 0022410240 — arrives as the integer 36247080, which
+// pads to a well-formed MMSI for a station that does not exist. Stock and
+// patched builds agree here; #461 restores the category, not the address.
+const WIRE_URGENCY = {
+  dscFormat: 'All ships',
+  dscCategory: 'Urgency',
+  dscMessageAddress: 36247080,
+  '1stTelecommand': 'F3E/G3E All modes TP',
+  subsequentCommunicationModeOr2ndTelecommand: 'No information',
+  proposedRxFrequencyChannel: '900016',
+  mmsiOfShipInDistress: 4294967295,
+  dscEosSymbol: 127,
+  expansionEnabled: 'No',
+  timeOfReceipt: '16:27:00',
+  dateOfReceipt: '2007.01.23',
+  dscEquipmentAssignedMessageId: 0,
+};
+
+test('a BCD address mangled by the decoder yields no MMSI rather than a wrong one', async () => {
+  const app = mockApp();
+  const plugin = start(app);
+
+  receive(app, WIRE_URGENCY);
+
+  const events = await stored(app);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].category, 'urgency');
+  assert.equal(events[0].mmsi, undefined);
+  plugin.stop();
 });
