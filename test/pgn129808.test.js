@@ -12,13 +12,13 @@ test('distress variant (dscDistressCallInformation)', () => {
     fields: {
       dscFormat: 'Distress',
       dscCategory: 'Distress',
-      dscMessageAddress: 338040079,
+      dscMessageAddress: '3380400790',
       natureOfDistress: 'Sinking',
       subsequentCommunicationModeOr2ndTelecommand: 'F3E/G3E All modes TP',
       latitudeOfVesselReported: 48.7621,
       longitudeOfVesselReported: -123.2345,
       timeOfPosition: '18:00:00',
-      mmsiOfShipInDistress: 338040079,
+      mmsiOfShipInDistress: '3380400790',
     },
   });
   assert.equal(ev.format, 'distressAlert');
@@ -84,12 +84,12 @@ test('distress relay (all-ships distress) is flagged and keeps casualty + nature
     fields: {
       dscFormat: 'All ships',
       dscCategory: 'Distress',
-      dscMessageAddress: 3160001, // relaying station
+      dscMessageAddress: '0031600010', // relaying station
       natureOfDistress: 'EPIRB emission',
       latitudeOfVesselReported: 48.79,
       longitudeOfVesselReported: -123.26,
       timeOfPosition: '20:19:00',
-      mmsiOfShipInDistress: 316200911, // casualty
+      mmsiOfShipInDistress: '3162009110', // casualty
     },
   });
   assert.equal(ev.format, 'allShips');
@@ -102,7 +102,7 @@ test('distress relay (all-ships distress) is flagged and keeps casualty + nature
 test('first-party N2K distress alert is not flagged as a relay', () => {
   const ev = normalizePgn129808({
     pgn: 129808,
-    fields: { dscFormat: 'Distress', dscCategory: 'Distress', dscMessageAddress: 338040079, natureOfDistress: 'Sinking' },
+    fields: { dscFormat: 'Distress', dscCategory: 'Distress', dscMessageAddress: '3380400790', natureOfDistress: 'Sinking' },
   });
   assert.equal(ev.relay, undefined);
 });
@@ -110,7 +110,7 @@ test('first-party N2K distress alert is not flagged as a relay', () => {
 test('AIS EPIRB device-beacon MMSI is tagged on the N2K path too', () => {
   const ev = normalizePgn129808({
     pgn: 129808,
-    fields: { dscFormat: 'Distress', dscCategory: 'Distress', dscMessageAddress: 974321098, natureOfDistress: 'EPIRB emission' },
+    fields: { dscFormat: 'Distress', dscCategory: 'Distress', dscMessageAddress: '9743210980', natureOfDistress: 'EPIRB emission' },
   });
   assert.equal(ev.deviceBeacon, 'epirb');
   assert.equal(ev.relay, undefined);

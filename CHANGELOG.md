@@ -4,6 +4,27 @@ All notable changes to `@sailingnaturali/signalk-dsc` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1]
+
+### Fixed
+
+- A numeric `DSC Message Address` or `MMSI of ship in distress` no longer becomes
+  an MMSI. Both fields are 40-bit BCD `DECIMAL`s — ten digits, and coast stations
+  lead with `00`, which no numeric type can carry. canboatjs (3.20.0) has no
+  `DECIMAL` case: `readValue` falls through to `readBits(40)`, whose 32-bit shifts
+  drop the leading digit pair and fold the trailing one back over it, so the
+  Spanish coast station `002241024` in canboat/canboatjs#460 — wire bytes
+  `00 16 29 02 28`, padded digits `0022410240` — arrives as the integer `36247080`
+  and padded to `036247080`: a well-formed MMSI for a station that does not exist,
+  written to the logbook and published as a phantom vessel. The dropped pair is
+  unrecoverable, so a numeric address is now refused and the call is stored without
+  an MMSI. A decoder that reads `DECIMAL` correctly hands over the padded digit
+  string, which is accepted as before.
+
+  The cost is the one #8 already documents for the category: with no MMSI, calls
+  from different stations sharing a category and nature collapse into one inside
+  the dedupe window. A wrong identity is worse — it names an innocent station.
+
 ## [0.11.0]
 
 ### Fixed
