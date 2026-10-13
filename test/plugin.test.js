@@ -755,3 +755,49 @@ test('DSCWatch: ownPosition rides along when the receiver has a fix; self flag o
   server.close();
   plugin.stop();
 });
+
+test('a distress call with a logbook token writes to signalk-logbook via v2 Resources API', async () => {
+  const app = mockApp();
+  // Simulate a SignalK app that exposes the v2 Resources API.
+  const calls = [];
+  app.resourcesApi = {
+    setResource: async (resourceType, id, value) => {
+      calls.push({ resourceType, id, value });
+    },
+  };
+  const plugin = start(app, { logbookToken: 'test-token', logbookUrl: undefined });
+  app.parsers.DSC(sentenceInput(DISTRESS));
+
+  // postLogbook is async and called without await inside record(), so let the
+  // microtask queue flush.
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].resourceType, 'logentries');
+  assert.equal(typeof calls[0].id, 'string');
+  assert.ok(calls[0].id.length > 0, 'id should be a non-empty uuid');
+  assert.equal(calls[0].value.category, 'radio');
+  assert.equal(calls[0].value.origin, 'auto');
+  assert.equal(calls[0].value.extra.vhf, '70', 'should carry vhf: 70 (DSC is on channel 70)');
+  assert.ok(calls[0].value.text, 'should carry a logbook text string');
+  // observations may be undefined if the snapshot lacks weather fields
+  if (calls[0].value.observations !== undefined) {
+    assert.ok(calls[0].value.observations, 'should carry own-ship observations if present');
+  }
+  plugin.stop();
+});
+
+test('a routine call respects logbookRoutine under the v2 Resources API', async () => {
+  const app = mockApp();
+  const calls = [];
+  app.resourcesApi = {
+    setResource: async (resourceType, id, value) => {
+      calls.push({ resourceType, id, value });
+    },
+  };
+  const plugin = start(app, { logbookToken: 'test-token', logbookUrl: undefined });
+  app.parsers.DSC(sentenceInput('$CDDSC,20,[AU_MEDICARE_REDACTED],00,21,26,[AU_MEDICARE_REDACTED],1902,,,B,E*7B'));
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(calls.length, 0, 'routine call not logged by default');
+  plugin.stop();
+});

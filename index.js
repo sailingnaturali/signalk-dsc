@@ -24,6 +24,7 @@
  */
 
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 
 const { parseDsc } = require('./lib/dsc');
 const { parseDse, refinePosition } = require('./lib/dse');
@@ -228,15 +229,46 @@ module.exports = function makePlugin(app) {
     return true;
   }
 
+  // Build the payload for a logbook entry — shared by v1 and v2 paths.
+  function logbookPayload(event, messageCtx) {
+    const text = buildLogbookText(event, messageCtx);
+    const observations = buildObservations(event.ownShip);
+    return { text, observations };
+  }
+
   async function postLogbook(event) {
-    await writeLogbookEntry({
-      url: options.logbookUrl,
-      token: options.logbookToken,
-      text: buildLogbookText(event, messageContext(event)),
-      observations: buildObservations(event.ownShip),
-      // DSC is received on VHF channel 70 by definition.
-      extra: { vhf: '70' },
-    });
+    if (!shouldLogbook(event)) return;
+
+    const payload = logbookPayload(event, messageContext(event));
+
+    // Prefer the v2 Resources API (signalk-logbook v2) when the SignalK app
+    // provides app.resourcesApi — no separate URL or cookie dance needed.
+    if (typeof app.resourcesApi?.setResource === 'function') {
+      const uuid = randomUUID();
+      await app.resourcesApi.setResource('logentries', uuid, {
+        ...payload,
+        origin: 'auto',
+        category: 'radio',
+        extra: { vhf: '70' },  // DSC is received on VHF channel 70 by definition.
+      });
+      return;
+    }
+
+    // Fall back to the v1 plugin REST API using signalk-distress-core's
+    // writeLogbookEntry (which uses fetch with Bearer + JAUTHENTICATION cookie).
+    if (options.logbookUrl) {
+      await writeLogbookEntry({
+        url: options.logbookUrl,
+        token: options.logbookToken,
+        text: payload.text,
+        observations: payload.observations,
+        extra: { vhf: '70' },
+      });
+      return;
+    }
+
+    // No URL configured and no resourcesApi — nothing to do.
+    app.error('signalk-dsc: logbook enabled but no writer configured');
   }
 
   /** Store a normalized call, alarm on it, and log it. Returns the stored event. */
